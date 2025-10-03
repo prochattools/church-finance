@@ -1,0 +1,5 @@
+{
+  "main_deploy": "dockerfile + GHCR",
+  "preview_deploy": "github app",
+  "notes": "Switch to container images for preview once Dokploy supports it."
+}

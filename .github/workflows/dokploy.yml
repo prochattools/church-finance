@@ -1,0 +1,36 @@
+name: Dokploy Deployments
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        run: npm install -g supabase
+
+      - name: Preview Deploy - Provision DB
+        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        run: ./scripts/provision-saas.sh boilerplate ${{ secrets.BASE_DOMAIN }} ${{ github.event.pull_request.number }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_TUNNEL_HOST: ${{ secrets.CLOUDFLARE_TUNNEL_HOST }}
+
+      - name: Preview Deploy - Cleanup DB
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        run: ./scripts/cleanup-preview.sh boilerplate ${{ github.event.pull_request.number }}
+
+      - name: Main Deploy
+        if: github.ref == 'refs/heads/main'
+        run: ./scripts/provision-saas.sh boilerplate ${{ secrets.BASE_DOMAIN }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_TUNNEL_HOST: ${{ secrets.CLOUDFLARE_TUNNEL_HOST }}

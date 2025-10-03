@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  user_email         String             @unique
+  sub_status         SubscriptionStatus @default(inactive)
+  sub_type           String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  last_stripe_cs_id  String             @unique
+  stripe_customer_id String             @unique
+  sub_stripe_id      String?
+  user_clerk_id      String             @unique
+}
+
+model Project {
+  id            String  @id @default(uuid())
+  connection_id String
+  webhook_id    String
+  scenario_id   String
+  assistant_id  String?
+  user_clerk_id String
+  type          String
+  status        String  @default("default")
+
+  webhookLink String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Audiences {
+  id        String @id @default(uuid())
+  resend_id String @unique
+  name      String
+}
+
+enum SubscriptionStatus {
+  active
+  inactive
+}
