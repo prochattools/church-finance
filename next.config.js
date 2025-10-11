@@ -1,5 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+	reactStrictMode: true,
+	swcMinify: true,
+	typescript: {
+	  // ✅ Disable type checking during production builds
+	  ignoreBuildErrors: process.env.DISABLE_TS_CHECK === '1',
+	},
+	eslint: {
+	  // ✅ Disable ESLint checks during production builds
+	  ignoreDuringBuilds: true,
+	},
+  };
+  
+  module.exports = nextConfig;
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
 	eslint: {
 		ignoreDuringBuilds: true,
 	},

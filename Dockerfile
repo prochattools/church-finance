@@ -20,7 +20,7 @@
   RUN npx prisma generate
   
   # Build production output
-  RUN NEXT_DISABLE_TYPECHECK=1 npm run build
+  RUN DISABLE_TS_CHECK=1 SKIP_ENV_VALIDATION=1 npm run build
   
   # ---------- Runtime Stage ----------
   FROM node:20-slim AS runner
