@@ -6,15 +6,15 @@ interface types {
 
 const Heading = ({ title, desc, maxWidth }: types) => {
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="flex w-full flex-col items-center text-center">
       <h2
-        className={`text-[42px] leading-[50px] font-bold text-center mb-4 text-black1 dark:text-white`}
+        className="mb-4 text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-[2.75rem]"
       >
         {title}
       </h2>
       <p
-        className={`text-[#7B7E83] dark:text-[#808389] font-inter font-medium text-base text-center`}
-        style={{ maxWidth: maxWidth ? `${maxWidth}px` : "none" }}
+        className="text-base font-medium text-white/70 sm:text-lg"
+        style={{ maxWidth: maxWidth ? `${maxWidth}px` : "640px" }}
       >
         {desc}
       </p>

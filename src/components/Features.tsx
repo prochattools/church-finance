@@ -22,8 +22,6 @@ import {
   Wordpress,
 } from "@/icons";
 import Image from "next/image";
-import StopCodingBg from "@/assets/images/stop-coding-bg1.svg";
-import StopCodingBgDark from "@/assets/images/stop-coding-bg2.svg";
 
 import LandingImg from "@/assets/images/landing.svg";
 import AuthImg from "@/assets/images/auth.svg";
@@ -235,100 +233,89 @@ const data = [
 
 const Features = () => {
   return (
-    <div className="relative flex justify-center items-center w-full">
-      <Image
-        src={StopCodingBg}
-        alt="background"
-        fill
-        style={{ objectFit: "cover" }}
-        priority={true}
-        className="z-0 block dark:hidden"
-      />
-      <Image
-        src={StopCodingBgDark}
-        alt="background"
-        fill
-        style={{ objectFit: "cover" }}
-        priority={true}
-        className="z-0 hidden dark:block"
-      />
-      <div className="relative z-10 max-w-[1440px] w-full px-4 sm:px-12 py-12">
-        <div className="max-w-[528px] mx-auto mb-24">
+    <section className="relative isolate overflow-hidden px-4 py-24 sm:px-8 lg:px-12">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[6%] top-[18%] h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,_rgba(122,122,255,0.28),_rgba(6,9,24,0))] blur-3xl" />
+        <div className="absolute right-[4%] top-[58%] h-[480px] w-[480px] rounded-full bg-[radial-gradient(circle,_rgba(36,196,255,0.22),_rgba(6,9,24,0))] blur-3xl" />
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-[1200px]">
+        <div className="mx-auto mb-20 max-w-[640px] text-center">
           <Heading
-            title="STOP Coding, Start Making MONEY!"
-            desc="This starter kit uses modern tech tools and marketing focused design that give you competitive advantage to move fast and earn $"
+            title="Stop Coding. Start Orchestrating Experiences."
+            desc="Borrowing the glassy ProChat aesthetic, every module is packaged with glowing gradients and bold typography so you launch in weeks, not quarters."
           />
         </div>
-        {data?.map((item, index) => (
-          <div
-            key={index}
-            className={`flex gap-8 lg:gap-4 justify-between mb-16 ${
-              index % 2 === 0
-                ? "flex-col-reverse lg:flex-row-reverse"
-                : "flex-col-reverse lg:flex-row"
-            }`}
-          >
-            <Image
-              src={item.image}
-              alt={item.title}
-              width={590}
-              height={315}
-              className="rounded-[16px] lg:w-[50%]"
-            />
-            <div className="lg:w-[45%]">
-              <div className="flex gap-2">
-                <div className="text-[#1364FF] dark:text-white mt-2">
-                  {item.icon}
-                </div>
-                <div className="text-[32px] font-bold text-black1 dark:text-white">
-                  {item.title}
-                </div>
-              </div>
-              <p className="text-lg font-medium text-[#7B7E83] dark:text-[#808389] my-4">
-                {item.desc}
-              </p>
-              <ul
-                className={`list-disc ml-4 mb-6 ${
-                  item?.isBlue
-                    ? "marker:text-[#1364FF] "
-                    : "marker:text-[#1AAB12]"
-                }`}
-              >
-                {item.features.map((feature, index) => (
-                  <li
-                    key={index}
-                    className="text-base font-medium text-black1 dark:text-white mb-2"
-                  >
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+        <div className="flex flex-col gap-16">
+          {data?.map((item, index) => {
+            const isEven = index % 2 === 0;
+
+            return (
               <div
-                className={`text-white mb-4 text-sm font-semibold w-fit rounded-[6px] px-3 py-[6px] ${
-                  item?.isBlue ? "bg-[#1364FF] " : "bg-[#1AAB12]"
-                }`}
+                key={index}
+                className="grid gap-10 lg:grid-cols-2 lg:items-center"
               >
-                {item.time}
-              </div>
-              {item?.technologies && (
-                <div className="flex flex-wrap py-2 border border-[#4D525A] rounded-[4px] w-fit">
-                  {item?.technologies?.map((tech, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center gap-2 text-black1 dark:text-white font-xs font-medium px-4 ${
-                        index !== 0 && "border-l border-[#4D525A]"
-                      }`}
-                    >
-                      {tech.icon} {tech.text}
-                    </div>
-                  ))}
+                <div
+                  className={`order-2 overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-4 shadow-[0_45px_140px_-80px_rgba(49,112,255,0.6)] backdrop-blur-2xl lg:order-none ${
+                    isEven ? "lg:order-2" : "lg:order-1"
+                  }`}
+                >
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    width={640}
+                    height={360}
+                    className="w-full rounded-[24px] object-cover"
+                  />
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
+                <div
+                  className={`rounded-[32px] border border-white/15 bg-white/5 p-8 shadow-[0_45px_140px_-90px_rgba(41,112,255,0.55)] backdrop-blur-2xl lg:p-10 ${
+                    isEven ? "lg:order-1" : "lg:order-2"
+                  }`}
+                >
+                  <div className="mb-6 flex items-center gap-3">
+                    <div className="flex size-12 items-center justify-center rounded-full border border-white/30 bg-white/12 text-white">
+                      {item.icon}
+                    </div>
+                    <h3 className="text-2xl font-semibold text-white sm:text-3xl">
+                      {item.title}
+                    </h3>
+                  </div>
+                  <p className="text-base text-white/75 sm:text-lg">
+                    {item.desc}
+                  </p>
+                  <ul className="mt-6 space-y-3 text-white/80">
+                    {item.features.map((feature, featureIndex) => (
+                      <li
+                        key={featureIndex}
+                        className="flex items-start gap-3 text-sm font-medium leading-relaxed sm:text-base"
+                      >
+                        <span className="mt-1 size-2 rounded-full bg-gradient-to-r from-[#7A7AFF] to-[#24C4FF]" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-6 inline-flex items-center rounded-full border border-white/20 bg-gradient-to-r from-[#7A7AFF] via-[#5F65FF] to-[#24C4FF] px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-[0_12px_40px_-20px_rgba(99,97,255,0.85)]">
+                    {item.time}
+                  </div>
+                  {item?.technologies && (
+                    <div className="mt-6 flex flex-wrap items-center gap-3 rounded-full border border-white/15 bg-white/8 px-4 py-2 text-sm text-white/70 backdrop-blur-xl">
+                      {item?.technologies?.map((tech, techIndex) => (
+                        <div
+                          key={techIndex}
+                          className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2"
+                        >
+                          {tech.icon} {tech.text}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 

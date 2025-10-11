@@ -41,6 +41,54 @@ model Audiences {
   name      String
 }
 
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  ledgers      Ledger[]
+}
+
+model Category {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  color         String?
+  createdAt     DateTime       @default(now())
+  transactions  Transaction[]
+}
+
+model Ledger {
+  id           String         @id @default(uuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  month        Int
+  year         Int
+  transactions Transaction[]
+  createdAt    DateTime       @default(now())
+
+  @@unique([userId, month, year])
+}
+
+model Transaction {
+  id            String     @id @default(uuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id])
+  ledgerId      String?
+  ledger        Ledger?    @relation(fields: [ledgerId], references: [id])
+  date          DateTime
+  description   String
+  normalizedKey String     @default("")
+  amount        Float
+  source        String
+  categoryId    String?
+  category      Category?  @relation(fields: [categoryId], references: [id])
+  createdAt     DateTime   @default(now())
+
+  @@index([userId, date])
+  @@index([userId, normalizedKey, amount])
+  @@unique([userId, date, amount, normalizedKey])
+}
+
 enum SubscriptionStatus {
   active
   inactive

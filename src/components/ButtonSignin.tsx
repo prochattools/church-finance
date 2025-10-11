@@ -5,19 +5,11 @@
  * 3. Improved avatar text styling and capitalization
  * 4. Better responsive text sizing
  */
-/* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { useClerk, useUser } from '@clerk/nextjs'
-import Image from 'next/image'
+import { cn } from '@/helpers/utils'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 
-// A simple button to sign in with Clerk.
-// It automatically redirects the user to callbackUrl (config.auth.callbackUrl) after login,
-// which is normally a private page for users to manage their accounts.
-// If the user is already logged in, it will show their profile picture & redirect them to callbackUrl immediately.
 const ButtonSignin = ({
 	text = 'Get started',
 	extraStyle,
@@ -25,63 +17,19 @@ const ButtonSignin = ({
 	text?: string
 	extraStyle?: string
 }) => {
-	const router = useRouter()
-	const { isSignedIn, user } = useUser()
-	const { openSignIn, signOut } = useClerk()
-
-	const handleClick = () => {
-		if (isSignedIn) {
-			router.push('/')
-		} else {
-			openSignIn({
-				// Optionally, you can specify sign-in options here
-				redirectUrl: '/dashboard',
-			})
-		}
-	}
-
-	if (isSignedIn && user) {
-		/* CUSTOM EDIT: Improved user display with better text handling for long emails */
-		const displayName = user.firstName || user.primaryEmailAddress?.emailAddress || 'Account'
-		const truncatedName = displayName.length > 20 ? displayName.substring(0, 17) + '...' : displayName
-		
-		return (
-			<Link
-				href={'/dashboard'}
-				className={`btn ${
-					extraStyle ? extraStyle : ''
-				} flex items-center gap-2 max-w-[200px]`}
-			>
-				{user.hasImage ? (
-					<Image
-						src={user.imageUrl}
-						alt={user.firstName || 'Account'}
-						className='w-6 h-6 rounded-full shrink-0'
-						referrerPolicy='no-referrer'
-						width={24}
-						height={24}
-					/>
-				) : (
-					<span className='w-6 h-6 bg-base-300 flex justify-center items-center rounded-full shrink-0 text-xs'>
-						{user.firstName
-							? user.firstName.charAt(0).toUpperCase()
-							: (user.primaryEmailAddress?.emailAddress?.charAt(0) || 'A').toUpperCase()}
-					</span>
-				)}
-				<span className='truncate text-sm'>{truncatedName}</span>
-			</Link>
-		)
-	}
-
 	return (
-		<Button
-			className={`btn bg-[#006fee] border-none scale-1 hover:scale-[1.05] transition-all duration-300 rounded-full px-8 hover:bg-[#006fee] ${
-				extraStyle ? extraStyle : ''
-			}`}
-			onClick={handleClick}
+		<Link
+			href='/dashboard'
+			className={cn(
+				'group relative inline-flex items-center justify-center overflow-hidden rounded-full px-7 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_-12px_rgba(98,97,255,0.75)] transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+				extraStyle,
+			)}
+			aria-label={text}
 		>
-			{text}
-		</Button>
+			<span className='absolute inset-0 bg-gradient-to-r from-[#5D5AF6] via-[#6E62FF] to-[#24C4FF]' />
+			<span className='absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.35),_rgba(255,255,255,0))]' />
+			<span className='relative z-[1]'>{text}</span>
+		</Link>
 	)
 }
 

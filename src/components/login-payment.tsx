@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { validateGithubUsername } from "@/utils/validate_github";
 import DennisAvatar from "@/assets/images/dennis-avatar.svg";
-import MainLogo from "@/assets/images/logo.svg";
+import prochatLogoColor from "@/assets/images/prochat-logo.png";
 import Image from "next/image";
 
 const links = [
@@ -365,10 +365,12 @@ const LoginPayment = ({ user }: any) => {
                             }}
                           >
                             <Image
-                              src={MainLogo}
-                              alt="logo"
-                              fill={true}
-                              style={{ marginTop: "30px" }}
+                              src={prochatLogoColor}
+                              alt="ProChat logo"
+                              width={180}
+                              height={58}
+                              style={{ marginTop: "30px", height: "auto" }}
+                              priority
                             />
                           </td>
                         </tr>

@@ -12,7 +12,8 @@ export const metadata = getSEOTags({
 })
 
 export default async function Blog() {
-	const articles = await wordpressService.getAllPosts()
+	const fetched = await wordpressService.getAllPosts()
+	const articles = Array.isArray(fetched) ? fetched : []
 
 	return (
 		<>

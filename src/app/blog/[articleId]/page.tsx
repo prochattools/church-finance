@@ -5,13 +5,21 @@
 // import BlogMoreArticles from "@/components/BlogMoreArticles";
 import BlogDetails from '@/components/BlogDetails'
 import { wordpressService } from '@/libs/wp'
+import { notFound } from 'next/navigation'
 
 export async function generateMetadata({
 	params,
 }: {
 	params: { slug: string }
 }) {
-	const { yoast_head_json, slug } = await wordpressService.getPost(params.slug)
+	const post = await wordpressService.getPost(params.slug)
+	if (!post) {
+		return {
+			title: 'Article not available',
+			description: 'The requested article could not be found.',
+		}
+	}
+	const { yoast_head_json, slug } = post
 
 	return {
 		title: yoast_head_json.title,
@@ -38,6 +46,9 @@ export default async function Article({
 	const slug = params.articleId
 	console.log('slug1', slug)
 	const article = await wordpressService.getPost(slug)
+	if (!article) {
+		notFound()
+	}
 	const articles = await wordpressService.getAllPosts()
 
 	return (

@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
+import { LedgerProvider } from "@/context/ledger-context";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -14,9 +15,11 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        <div className="min-h-screen bg-background">
-          {children}
-        </div>
+        <LedgerProvider>
+          <div className="min-h-screen bg-background">
+            {children}
+          </div>
+        </LedgerProvider>
       </ThemeProvider>
 
       <Toaster

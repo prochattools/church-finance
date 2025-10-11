@@ -19,7 +19,7 @@ import { Blog, Demo, Moon, OpenNav, Pricing, RightArrow, Sun } from '@/icons'
 import { ScrollToSection } from '@/utils/scroll-to-section'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 const nav_links = [
 	{
@@ -33,6 +33,16 @@ const nav_links = [
 		link: '/',
 	},
 	{
+		icon: <Pricing />,
+		title: 'Ledger',
+		link: '/ledger',
+	},
+	{
+		icon: <Demo />,
+		title: 'Review',
+		link: '/review',
+	},
+	{
 		icon: <Blog width={18} height={18} />,
 		title: 'Blog',
 		link: '/blog',
@@ -40,36 +50,34 @@ const nav_links = [
 ]
 
 const ThemeSwitch = () => {
-	const { setTheme } = useTheme()
+	const { resolvedTheme, theme, setTheme } = useTheme()
+	const [mounted, setMounted] = useState(false)
 
 	useEffect(() => {
-		setTheme('system')
+		setMounted(true)
 	}, [])
 
-	const handleChnage = (e: any) => {
-		const isDark = e.target.checked
-		console.log(isDark)
-		if (isDark) {
-			setTheme('dark')
-		} else {
-			setTheme('light')
-		}
+	const isDark = ((theme ?? 'system') === 'system' ? resolvedTheme : theme) === 'dark'
+
+	const handleChange = () => {
+		if (!mounted) return
+		setTheme(isDark ? 'light' : 'dark')
 	}
+
 	return (
-		<label className='flex items-center relative w-max cursor-pointer select-none'>
+		<label className='relative inline-flex h-9 w-[68px] items-center rounded-full border border-white/30 bg-white/80 px-2 shadow-[0_6px_24px_-12px_rgba(45,87,255,0.45)] backdrop-blur-xl transition-colors duration-300 ease-out dark:border-white/10 dark:bg-white/10'>
 			<input
 				type='checkbox'
-				id='theme-toggle'
-				onChange={handleChnage}
-				className='appearance-none transition-colors cursor-pointer w-14 h-[30px] rounded-full focus:outline-none border border-[#B7B8BB] dark:border-[#373C53] bg-white'
+				onChange={handleChange}
+				checked={mounted ? isDark : false}
+				className='peer absolute inset-0 h-full w-full cursor-pointer opacity-0'
+				aria-label='Toggle theme'
 			/>
-			<span className='absolute font-medium text-xs uppercase right-1 text-white'>
+			<span className='pointer-events-none flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700 transition-colors duration-200 dark:text-slate-200'>
 				<Sun />
-			</span>
-			<span className='absolute font-medium text-xs uppercase right-8 text-white'>
 				<Moon />
 			</span>
-			<span className='w-6 h-6 right-[29px] dark:right-[31px] absolute rounded-full transform transition-transform bg-[#0B111B] dark:bg-white' />
+			<span className='pointer-events-none absolute left-1 top-1 h-7 w-7 rounded-full bg-gradient-to-r from-[#5D5AF6] to-[#24C4FF] shadow-[0_10px_30px_-12px_rgba(36,196,255,0.65)] transition-transform duration-300 ease-out peer-checked:translate-x-[28px]' />
 		</label>
 	)
 }
@@ -78,24 +86,24 @@ const MobileNav = () => {
 	return (
 		<Sheet>
 			<SheetTrigger>
-				<div className='text-black1 dark:text-white'>
+				<div className='flex items-center justify-center rounded-full border border-white/30 bg-white/80 p-3 text-black1 shadow-[0_6px_24px_-12px_rgba(45,87,255,0.38)] backdrop-blur-xl transition-colors duration-200 ease-out dark:border-white/10 dark:bg-white/10 dark:text-white'>
 					<OpenNav />
 				</div>
 			</SheetTrigger>
-			<SheetContent className='bg-white dark:bg-black1 px-0 pt-4 border-l-0 min-w-[320px]'>
+			<SheetContent className='min-w-[320px] border-l-0 bg-gradient-to-b from-white/95 via-white/90 to-white/80 px-0 pt-4 backdrop-blur-xl dark:from-[#050916]/95 dark:via-[#050916]/92 dark:to-[#050916]/90'>
 				<SheetHeader>
-					<SheetTitle className='text-black1 dark:text-white text-xl font-bold border-b border-[#b3b3b3] text-left pb-4 pl-4'>
+					<SheetTitle className='border-b border-white/20 pb-4 pl-6 text-left text-xl font-semibold text-slate-900 dark:border-white/10 dark:text-white'>
 						Menu
 					</SheetTitle>
 				</SheetHeader>
-				<Link href='/' className='flex items-center gap-2 mt-8 mx-auto w-fit'>
+				<Link href='/' className='mx-auto mt-8 flex w-fit items-center gap-2'>
 					<Logo />
 				</Link>
-				<div className='my-8 mx-auto w-fit'>
+				<div className='mx-auto my-8 w-fit'>
 					<NavLinks nav_links={nav_links} />
 				</div>
 				{/* CUSTOM EDIT: Added ButtonSignin to mobile navigation for dashboard access */}
-				<div className='mb-8 mx-auto w-fit'>
+				<div className='mx-auto mb-8 w-fit'>
 					<ButtonSignin />
 				</div>
 				<div
@@ -113,8 +121,9 @@ const MobileNav = () => {
 
 const Header = () => {
 	return (
-		<div className='flex justify-center items-center w-full fixed top-0 z-50 bg-white dark:bg-[#010814]'>
-			<div className='max-w-[1440px] w-full flex justify-between items-center gap-4 px-4 sm:px-12 py-6'>
+		<header className='fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4 backdrop-blur-sm md:px-6 lg:px-8'>
+			<div className='relative flex w-full max-w-[1200px] items-center justify-between gap-4 rounded-full border border-white/30 bg-white/80 px-5 py-3 shadow-[0_18px_65px_-40px_rgba(49,112,255,0.85)] backdrop-blur-2xl transition-colors duration-300 ease-out dark:border-white/10 dark:bg-white/10'>
+				<div className='pointer-events-none absolute inset-0 -z-10 rounded-full opacity-[0.06] blur-3xl' />
 				<Link href='/'>
 					<Logo />
 				</Link>
@@ -123,17 +132,17 @@ const Header = () => {
 				</div>
 
 				{/* CUSTOM EDIT: Fixed responsive layout to prevent overlap */}
-				<div className='hidden lg:flex items-center gap-4'>
+				<div className='hidden items-center gap-4 lg:flex'>
 					<ThemeSwitch />
 					<ButtonSignin />
 				</div>
 
-				<div className='lg:hidden flex items-center gap-3'>
+				<div className='flex items-center gap-3 lg:hidden'>
 					<ThemeSwitch />
 					<MobileNav />
 				</div>
 			</div>
-		</div>
+		</header>
 	)
 }
 

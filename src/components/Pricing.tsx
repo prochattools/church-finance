@@ -1,8 +1,5 @@
 import { Heading, IconButton } from "@/components";
-import { Tick, NotInclude, RightArrow } from "@/icons";
-import Image from "next/image";
-import pricingBg from "@/assets/images/pricing-bg1.svg";
-import pricingBgDark from "@/assets/images/pricing-bg2.svg";
+import { NotInclude, RightArrow, Tick } from "@/icons";
 
 const pricing_card = [
   {
@@ -138,126 +135,97 @@ const pricing_card = [
   },
 ];
 
-const PricingCard = ({ item }: any) => {
+const PricingCard = ({ item }: { item: (typeof pricing_card)[number] }) => {
+  const cardClasses = item?.is_best_deal
+    ? "border-white/25 bg-[linear-gradient(160deg,rgba(122,122,255,0.34),rgba(23,33,78,0.85))] shadow-[0_40px_140px_-80px_rgba(49,112,255,0.85)]"
+    : "border-white/12 bg-white/8 shadow-[0_35px_120px_-90px_rgba(49,112,255,0.55)]";
+
   return (
-    <div
-      className={`relative min-w-[300px] sm:min-w-[330px] mt-16 w-fit pb-5 pt-10 bg-white dark:bg-gradient-to-r from-[#1E242D] to-[#0B111B] h-full scale-1 hover:scale-[1.05] transition-all duration-300 px-4 min-h-full border rounded-[16px] shadow-lg ${
-        !item?.is_best_deal ? "border-[#2E4666]" : "border-[#1AAB12]"
-      }`}
-    >
-      <div>
-        <div>
-          <p className="text-black1 dark:text-white font-medium text-lg">
-            {item?.title}
-          </p>
-          <div className="flex items-center justify-start gap-2 my-3">
-            {item?.price_before && (
-              <p className="text-[#B7B8BB] dark:text-[#4D525A] font-semibold pt-2 text-[26px] line-through">
-                {item?.price_before}
-              </p>
-            )}
-            <p
-              className={`text-[42px] font-bold ${
-                item?.is_best_deal
-                  ? "text-[#1AAB12]"
-                  : "text-black1 dark:text-white"
-              }`}
-            >
-              {item?.price_now}{" "}
-              <span className="text-base font-semibold text-[#01061033] dark:text-[#808389]">
-                / lifetime
-              </span>
-            </p>
-          </div>
-          {item?.features?.map((cardItem: any, index: number) => (
-            <div key={index} className="flex items-center gap-2 mb-3">
-              <div className="text-[#FD9292] dark:text-[#873135]">
-                {cardItem?.not_included ? (
-                  <NotInclude />
-                ) : (
-                  <Tick
-                    width={item?.is_best_deal ? 19 : 16}
-                    height={item?.is_best_deal ? 19 : 16}
-                  />
-                )}
-              </div>
-              <div className="flex justify-between items-center gap-3">
-                <p
-                  className={`font-medium ${
-                    cardItem?.not_included
-                      ? "text-[#7B7E83] dark:text-[#4D525A]"
-                      : "text-black1 dark:text-white"
-                  } ${item?.is_best_deal ? "text-lg" : "text-base"}`}
-                >
-                  {cardItem?.text}
-                </p>
-                <p
-                  className={`${
-                    item?.is_best_deal && item?.features?.length - 1 === index
-                      ? "bg-[#1AAB12] rounded-full flex items-center h-fit py-[6px] px-3 font-bold text-sm whitespace-nowrap text-white"
-                      : "hidden"
-                  }`}
-                >
-                  Update 4 days ago
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <a href={item?.btn_link} target="_blank" className="mt-5 mb-3 block">
-          <IconButton text="Get MicroSaaSFast" icon={<RightArrow />} />
-        </a>
-        <p
-          className={`text-center text-[#7B7E83] dark:text-[#4D525A] ${
-            item?.is_best_deal ? "text-lg" : "text-base"
-          }`}
-        >
-          Pay once. Forever access.
-          <br />
-          Ship unlimited projects!
-        </p>
-      </div>
+    <div className={`relative flex h-full flex-col gap-6 rounded-[32px] p-8 backdrop-blur-2xl transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_42px_150px_-90px_rgba(49,112,255,0.85)] ${cardClasses}`}>
       {item?.is_best_deal && (
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1AAB12] text-white text-lg font-bold rounded-[8px] px-6 py-3 uppercase">
+        <div className="absolute -top-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/40 bg-white/15 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.35em] text-white/85 shadow-[0_10px_30px_-20px_rgba(99,97,255,0.75)] backdrop-blur-xl">
           Best deal
         </div>
       )}
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/60">
+          {item?.title}
+        </p>
+        <div className="flex items-center gap-3">
+          {item?.price_before && (
+            <span className="text-lg font-medium text-white/40 line-through">
+              {item?.price_before}
+            </span>
+          )}
+          <p className="text-4xl font-semibold text-white sm:text-[2.75rem]">
+            {item?.price_now}
+            <span className="ml-1 text-sm font-medium text-white/60">/ lifetime</span>
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-3">
+        {item?.features?.map((cardItem) => (
+          <div
+            key={cardItem.id}
+            className="flex items-start gap-3 text-sm text-white/80 sm:text-base"
+          >
+            <span className="mt-0.5 flex h-5 w-5 items-center justify-center">
+              {cardItem?.not_included ? (
+                <NotInclude />
+              ) : (
+                <Tick width={18} height={18} />
+              )}
+            </span>
+            <span
+              className={`flex-1 ${
+                cardItem?.not_included ? "text-white/35 line-through" : ""
+              }`}
+            >
+              {cardItem?.text}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-auto space-y-3 pt-2">
+        <a
+          href={item?.btn_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block"
+        >
+          <IconButton text="Get MicroSaaSFast" icon={<RightArrow />} />
+        </a>
+        <p className="text-center text-sm font-medium text-white/65">
+          Pay once. Forever access. <br />
+          Ship unlimited projects!
+        </p>
+      </div>
     </div>
   );
 };
 
 const Pricing = () => {
   return (
-    <div className="relative flex justify-center items-center w-full">
-      <Image
-        src={pricingBg}
-        alt="background"
-        fill
-        style={{ objectFit: "cover" }}
-        className="z-0 block dark:hidden"
-      />
-      <Image
-        src={pricingBgDark}
-        alt="background"
-        fill
-        style={{ objectFit: "cover" }}
-        className="z-0 hidden dark:block"
-      />
-      <div className="relative z-10 max-w-[1440px] w-full px-4 sm:px-12 py-12">
-        <div id="1" className="max-w-[675px] mx-auto">
+    <section className="relative isolate overflow-hidden px-4 py-24 sm:px-8 lg:px-12">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[20%] top-[10%] h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,_rgba(122,122,255,0.25),_rgba(6,9,24,0))] blur-3xl" />
+        <div className="absolute right-[18%] top-[60%] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,_rgba(36,196,255,0.2),_rgba(6,9,24,0))] blur-3xl" />
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-[1200px]">
+        <div id="1" className="mx-auto max-w-[620px] text-center">
           <Heading
-            title="Save Hours of Boring Code, Ship Startup Fast, Start Earning $$$!"
-            desc="Spend 1 hour to run your Micro SaaS startup and start making MONEY NOW!"
-            maxWidth={354}
+            title="Transparent pricing, ProChat polish."
+            desc="Lifetime licenses with the same glossy finish: deploy faster, own your stack, and iterate without worrying about mounting subscriptions."
+            maxWidth={480}
           />
         </div>
-        <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
-          {pricing_card.map((card: any) => (
+        <div className="mt-16 grid gap-8 md:grid-cols-2">
+          {pricing_card.map((card) => (
             <PricingCard key={card.id} item={card} />
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
