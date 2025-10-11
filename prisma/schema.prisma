@@ -71,6 +71,7 @@ model Ledger {
   lockedBy     String?
   lockNote     String?
   lock         LedgerLock?
+  rules        CategorizationRule[]
 
   @@unique([userId, month, year])
 }
@@ -137,6 +138,7 @@ model ImportBatch {
   updatedAt     DateTime           @updatedAt
 
   transactions Transaction[]
+  rules        CategorizationRule[]
 
   @@index([userId, startedAt])
 }
@@ -165,6 +167,9 @@ model Transaction {
   rawRow        Json?
   categoryId    String?
   category      Category?  @relation(fields: [categoryId], references: [id])
+  classificationSource TransactionClassificationSource @default(none)
+  classificationRuleId String?
+  classificationRule   CategorizationRule? @relation(fields: [classificationRuleId], references: [id])
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -172,6 +177,33 @@ model Transaction {
   @@index([userId, normalizedKey, amountMinor])
   @@index([userId, accountId, date])
   @@unique([hash])
+}
+
+model CategorizationRule {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  importBatchId String?
+  importBatch   ImportBatch?     @relation(fields: [importBatchId], references: [id])
+  ledgerId      String?
+  ledger        Ledger?          @relation(fields: [ledgerId], references: [id])
+  categoryId    String
+  category      Category         @relation(fields: [categoryId], references: [id])
+  label         String
+  pattern       String
+  matchType     RuleMatchType    @default(regex)
+  matchField    RuleMatchField   @default(description)
+  priority      Int              @default(100)
+  isActive      Boolean          @default(true)
+  createdBy     String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  lastMatchedAt DateTime?
+
+  transactions  Transaction[]
+
+  @@index([userId, isActive, priority])
+  @@index([ledgerId])
 }
 
 enum SubscriptionStatus {
@@ -188,4 +220,26 @@ enum ImportBatchStatus {
   pending
   completed
   failed
+}
+
+enum RuleMatchType {
+  regex
+  contains
+  startsWith
+  endsWith
+}
+
+enum RuleMatchField {
+  description
+  counterparty
+  reference
+  source
+}
+
+enum TransactionClassificationSource {
+  none
+  rule
+  history
+  import
+  manual
 }

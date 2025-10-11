@@ -34,6 +34,8 @@ type AccountSummary = {
 
 type ReconciliationPayload = Awaited<ReturnType<typeof fetchReconciliation>>;
 
+type ReconciliationStatus = 'balanced' | 'unreconciled' | 'unknown';
+
 const formatCurrency = (valueMinor: string | null, currency = 'EUR') => {
   if (!valueMinor) return '—';
   const amount = Number(valueMinor) / 100;
@@ -43,7 +45,7 @@ const formatCurrency = (valueMinor: string | null, currency = 'EUR') => {
   });
 };
 
-export function ReconciliationCard({ className }: { className?: string }) {
+export function ReconciliationCard({ className, onStatusChange }: { className?: string; onStatusChange?: (status: ReconciliationStatus) => void }) {
   const { serverPipelineEnabled } = useLedger();
   const now = useMemo(() => new Date(), []);
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
@@ -81,6 +83,7 @@ export function ReconciliationCard({ className }: { className?: string }) {
 
   useEffect(() => {
     if (!serverPipelineEnabled || !selectedAccount) {
+      onStatusChange?.('unknown');
       return;
     }
 
@@ -97,11 +100,13 @@ export function ReconciliationCard({ className }: { className?: string }) {
         });
         if (!controller.signal.aborted) {
           setData(result);
+          onStatusChange?.(result.status);
         }
       } catch (err) {
         if (!controller.signal.aborted) {
           console.error(err);
           setError(err instanceof Error ? err.message : 'Unable to load reconciliation');
+          onStatusChange?.('unknown');
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -113,7 +118,7 @@ export function ReconciliationCard({ className }: { className?: string }) {
     load();
 
     return () => controller.abort();
-  }, [serverPipelineEnabled, selectedAccount, month, year]);
+  }, [serverPipelineEnabled, selectedAccount, month, year, onStatusChange]);
 
   if (!serverPipelineEnabled) {
     return null;
@@ -139,11 +144,19 @@ export function ReconciliationCard({ className }: { className?: string }) {
       setOpeningAmount('');
       setOpeningDate('');
       setOpeningNote('');
-      const refreshed = await fetchAccounts();
-      setAccounts(refreshed);
+      const refreshedAccounts = await fetchAccounts();
+      setAccounts(refreshedAccounts);
+      const refreshedReconciliation = await fetchReconciliation({
+        accountId: selectedAccount,
+        month,
+        year,
+      });
+      setData(refreshedReconciliation);
+      onStatusChange?.(refreshedReconciliation.status);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Unable to save opening balance');
+      onStatusChange?.('unknown');
     } finally {
       setSavingOpening(false);
     }
@@ -180,9 +193,11 @@ export function ReconciliationCard({ className }: { className?: string }) {
       toast.success('Ledger locked');
       const refreshed = await fetchReconciliation({ accountId: selectedAccount!, month, year });
       setData(refreshed);
+      onStatusChange?.(refreshed.status);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Unable to lock ledger');
+      onStatusChange?.('unknown');
     } finally {
       setLockBusy(false);
     }
@@ -199,9 +214,11 @@ export function ReconciliationCard({ className }: { className?: string }) {
       toast.success('Ledger unlocked');
       const refreshed = await fetchReconciliation({ accountId: selectedAccount!, month, year });
       setData(refreshed);
+      onStatusChange?.(refreshed.status);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Unable to unlock ledger');
+      onStatusChange?.('unknown');
     } finally {
       setLockBusy(false);
     }
@@ -435,20 +452,17 @@ function MetricCard({ label, value, hint }: { label: string; value: string; hint
   );
 }
 
-function StatusCard({ status, difference }: { status: 'balanced' | 'unreconciled' | 'unknown'; difference: string }) {
-  const tone =
-    status === 'balanced'
-      ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30'
-      : status === 'unreconciled'
-      ? 'bg-amber-500/15 text-amber-100 border-amber-400/30'
-      : 'bg-white/10 text-white/70 border-white/20';
+function StatusCard({ status, difference }: { status: ReconciliationStatus; difference: string }) {
+  let tone = 'bg-white/10 text-white/70 border-white/20';
+  let label = '🕒 Awaiting statement';
 
-  const label =
-    status === 'balanced'
-      ? 'Balanced'
-      : status === 'unreconciled'
-      ? `Unreconciled (${difference})`
-      : 'Awaiting statement';
+  if (status === 'balanced') {
+    tone = 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30';
+    label = '✅ Reconciled';
+  } else if (status === 'unreconciled') {
+    tone = 'bg-amber-500/15 text-amber-100 border-amber-400/30';
+    label = difference ? `⚠️ Mismatch (${difference})` : '⚠️ Mismatch';
+  }
 
   return (
     <div className={cn('rounded-xl border px-4 py-3 text-sm font-semibold', tone)}>{label}</div>

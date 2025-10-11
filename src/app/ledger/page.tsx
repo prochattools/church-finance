@@ -1159,6 +1159,26 @@ function TransactionsView({ transactions, categoryTree }: { transactions: Ledger
   );
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const columnMenuRef = useRef<HTMLDivElement | null>(null);
+  const [reconciliationStatus, setReconciliationStatus] = useState<'balanced' | 'unreconciled' | 'unknown'>('unknown');
+
+  const statusBadge = useMemo(() => {
+    if (reconciliationStatus === 'balanced') {
+      return {
+        label: '✅ Reconciled',
+        tone: 'border-emerald-400/30 bg-emerald-500/15 text-emerald-100',
+      };
+    }
+    if (reconciliationStatus === 'unreconciled') {
+      return {
+        label: '⚠️ Mismatch',
+        tone: 'border-amber-400/30 bg-amber-500/15 text-amber-100',
+      };
+    }
+    return {
+      label: '🕒 Pending',
+      tone: 'border-white/20 bg-white/10 text-white/70',
+    };
+  }, [reconciliationStatus]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1345,6 +1365,10 @@ function TransactionsView({ transactions, categoryTree }: { transactions: Ledger
               );
             })}
           </div>
+          <span className="ml-auto text-xs font-semibold uppercase tracking-wide text-white/60">Status</span>
+          <span className={cn('rounded-full border px-3 py-1 text-[11px] font-semibold', statusBadge.tone)}>
+            {statusBadge.label}
+          </span>
         </div>
         <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <FilterSelect
@@ -1420,7 +1444,7 @@ function TransactionsView({ transactions, categoryTree }: { transactions: Ledger
           </div>
         </div>
       </div>
-      <ReconciliationCard />
+      <ReconciliationCard onStatusChange={setReconciliationStatus} />
 
       <section className="rounded-2xl border border-white/5 bg-[#060F1F]/60 p-6 shadow-inner shadow-black/30">
         <header className="flex flex-wrap items-center justify-between gap-3 pb-4">

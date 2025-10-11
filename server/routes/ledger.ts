@@ -13,6 +13,12 @@ export const getLedger = async (req: Request, res: Response) => {
         category: true,
         ledger: true,
         account: true,
+        classificationRule: {
+          select: {
+            id: true,
+            label: true,
+          },
+        },
       },
       orderBy: {
         date: 'desc',
@@ -85,6 +91,18 @@ export const getLedger = async (req: Request, res: Response) => {
       });
     });
 
+    const ledgerSnapshots = await prisma.ledger.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        month: true,
+        year: true,
+        lockedAt: true,
+        lockedBy: true,
+        lockNote: true,
+      },
+    });
+
     const payload = transactions.map((tx) => ({
       id: tx.id,
       date: tx.date,
@@ -108,6 +126,10 @@ export const getLedger = async (req: Request, res: Response) => {
       runningBalance: runningBalanceById.has(tx.id)
         ? Number(runningBalanceById.get(tx.id)) / 100
         : null,
+      classificationSource: tx.classificationSource,
+      classificationRuleId: tx.classificationRuleId,
+      classificationRuleLabel: tx.classificationRule?.label ?? null,
+      ledgerLockedAt: tx.ledger?.lockedAt ?? null,
     }));
 
     const reviewCount = payload.filter((tx) => !tx.categoryId).length;
@@ -123,6 +145,14 @@ export const getLedger = async (req: Request, res: Response) => {
         autoCategorized,
         totalAmount,
       },
+      ledgers: ledgerSnapshots.map((ledger) => ({
+        id: ledger.id,
+        month: ledger.month,
+        year: ledger.year,
+        lockedAt: ledger.lockedAt ? ledger.lockedAt.toISOString() : null,
+        lockedBy: ledger.lockedBy,
+        lockNote: ledger.lockNote ?? null,
+      })),
     });
   } catch (error) {
     console.error('Ledger fetch failed', error);

@@ -1,6 +1,37 @@
+import type { Account, Ledger, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../prismaClient';
 import { toMinorUnits } from '../../lib/import/normalizers';
-import type { Prisma } from '@prisma/client';
+
+export class LedgerMismatchError extends Error {
+  constructor(
+    message: string,
+    public readonly details: {
+      accountId: string;
+      month: number;
+      year: number;
+      differenceMinor: bigint;
+      computedBalanceMinor: bigint;
+      statementBalanceMinor: bigint;
+    },
+  ) {
+    super(message);
+    this.name = 'LedgerMismatchError';
+  }
+}
+
+export class MissingOpeningBalanceError extends Error {
+  constructor(
+    message: string,
+    public readonly details: {
+      accountId: string;
+      month: number;
+      year: number;
+    },
+  ) {
+    super(message);
+    this.name = 'MissingOpeningBalanceError';
+  }
+}
 
 type ReconciliationParams = {
   userId: string;
@@ -86,7 +117,7 @@ const resolvePeriod = (params: ReconciliationParams): { start: Date; end: Date; 
 
 const formatISODate = (date: Date): string => date.toISOString();
 
-const extractStatementBalance = (rawRow: Prisma.JsonValue | null | undefined): bigint | null => {
+export const extractStatementBalance = (rawRow: Prisma.JsonValue | null | undefined): bigint | null => {
   if (!rawRow || typeof rawRow !== 'object' || Array.isArray(rawRow)) {
     return null;
   }
@@ -119,12 +150,38 @@ const dateRange = (start: Date, end: Date): string[] => {
   return result;
 };
 
-export const computeReconciliation = async (
-  params: ReconciliationParams,
-): Promise<ReconciliationResult> => {
-  const { start, end, month, year } = resolvePeriod(params);
+type PrismaClientOrTx = PrismaClient | Prisma.TransactionClient;
 
-  const account = await prisma.account.findFirst({
+type PeriodContext = {
+  account: Account;
+  ledger: Pick<Ledger, 'id' | 'lockedAt' | 'lockedBy' | 'lockNote'> & {
+    lock: {
+      lockedAt: Date;
+      lockedBy: string | null;
+      note: string | null;
+    } | null;
+  } | null;
+  openingAmount: bigint;
+  openingDate: Date | null;
+  transactions: Array<{
+    id: string;
+    date: Date;
+    description: string;
+    amountMinor: bigint;
+    currency: string;
+    normalizedKey: string;
+    reference: string | null;
+    rawRow: Prisma.JsonValue | null;
+  }>;
+};
+
+const loadPeriodContext = async (
+  client: PrismaClientOrTx,
+  params: ReconciliationParams,
+  start: Date,
+  end: Date,
+): Promise<PeriodContext> => {
+  const account = await client.account.findFirst({
     where: {
       id: params.accountId,
       userId: params.userId,
@@ -135,12 +192,12 @@ export const computeReconciliation = async (
     throw new Error('Account not found');
   }
 
-  const ledger = await prisma.ledger.findUnique({
+  const ledger = await client.ledger.findUnique({
     where: {
       userId_month_year: {
         userId: params.userId,
-        month,
-        year,
+        month: start.getUTCMonth() + 1,
+        year: start.getUTCFullYear(),
       },
     },
     select: {
@@ -158,7 +215,7 @@ export const computeReconciliation = async (
     },
   });
 
-  const openings = await prisma.openingBalance.findMany({
+  const openings = await client.openingBalance.findMany({
     where: {
       accountId: account.id,
       effectiveDate: {
@@ -172,6 +229,7 @@ export const computeReconciliation = async (
 
   let openingAmount: bigint = 0n;
   let openingDate: Date | null = null;
+
   openings.forEach((item) => {
     if (item.effectiveDate.getTime() <= start.getTime()) {
       openingAmount = item.amountMinor;
@@ -179,7 +237,7 @@ export const computeReconciliation = async (
     }
   });
 
-  const transactions = await prisma.transaction.findMany({
+  const transactions = await client.transaction.findMany({
     where: {
       userId: params.userId,
       accountId: account.id,
@@ -203,13 +261,31 @@ export const computeReconciliation = async (
     },
   });
 
-  let runningBalance = openingAmount;
+  return {
+    account,
+    ledger,
+    openingAmount,
+    openingDate,
+    transactions,
+  };
+};
+
+export const computeReconciliation = async (
+  params: ReconciliationParams,
+  client: PrismaClientOrTx = prisma,
+): Promise<ReconciliationResult> => {
+  const { start, end, month, year } = resolvePeriod(params);
+
+  const context = await loadPeriodContext(client, params, start, end);
+
+  let runningBalance = context.openingAmount;
   let statementBalance: bigint | null = null;
   let totalCredits = 0n;
   let totalDebits = 0n;
 
   const duplicateMap = new Map<string, { count: number; description: string; amount: bigint; date: string }>();
-  const runningTransactions = transactions.map((tx) => {
+
+  const runningTransactions = context.transactions.map((tx) => {
     runningBalance += tx.amountMinor;
 
     if (tx.amountMinor >= 0n) {
@@ -218,11 +294,9 @@ export const computeReconciliation = async (
       totalDebits += tx.amountMinor * -1n;
     }
 
-    if (statementBalance === null) {
-      const candidate = extractStatementBalance(tx.rawRow);
-      if (candidate != null) {
-        statementBalance = candidate;
-      }
+    const candidate = extractStatementBalance(tx.rawRow);
+    if (candidate != null) {
+      statementBalance = candidate;
     }
 
     const dateKey = tx.date.toISOString().slice(0, 10);
@@ -251,7 +325,7 @@ export const computeReconciliation = async (
   });
 
   const missingDates = dateRange(start, end).filter((iso) =>
-    !transactions.some((tx) => tx.date.toISOString().startsWith(iso)),
+    !context.transactions.some((tx) => tx.date.toISOString().startsWith(iso)),
   );
 
   const duplicateIndicators = Array.from(duplicateMap.values())
@@ -272,10 +346,10 @@ export const computeReconciliation = async (
 
   return {
     account: {
-      id: account.id,
-      name: account.name,
-      identifier: account.identifier,
-      currency: account.currency,
+      id: context.account.id,
+      name: context.account.name,
+      identifier: context.account.identifier,
+      currency: context.account.currency,
     },
     period: {
       start: formatISODate(start),
@@ -284,17 +358,17 @@ export const computeReconciliation = async (
       year,
     },
     ledger: {
-      id: ledger?.id ?? null,
-      lockedAt: ledger?.lock?.lockedAt
-        ? ledger.lock.lockedAt.toISOString()
-        : ledger?.lockedAt
-        ? ledger.lockedAt.toISOString()
+      id: context.ledger?.id ?? null,
+      lockedAt: context.ledger?.lock?.lockedAt
+        ? context.ledger.lock.lockedAt.toISOString()
+        : context.ledger?.lockedAt
+        ? context.ledger.lockedAt.toISOString()
         : null,
-      lockedBy: ledger?.lock?.lockedBy ?? ledger?.lockedBy ?? null,
+      lockedBy: context.ledger?.lock?.lockedBy ?? context.ledger?.lockedBy ?? null,
     },
     openingBalance: {
-      amountMinor: openingAmount.toString(),
-      effectiveDate: openingDate ? openingDate.toISOString() : null,
+      amountMinor: context.openingAmount.toString(),
+      effectiveDate: context.openingDate ? context.openingDate.toISOString() : null,
     },
     computedEndBalanceMinor: runningBalance.toString(),
     statementEndBalanceMinor: statementBalance?.toString() ?? null,
@@ -307,5 +381,90 @@ export const computeReconciliation = async (
     missingDates,
     duplicateIndicators,
     transactions: runningTransactions,
+  };
+};
+
+export const validateLedgerBalance = async (
+  client: PrismaClientOrTx,
+  params: {
+    userId: string;
+    accountId: string;
+    month: number;
+    year: number;
+    toleranceMinor?: bigint;
+  },
+): Promise<{
+  status: 'reconciled' | 'unknown';
+  differenceMinor: bigint | null;
+  computedBalanceMinor: bigint | null;
+  statementBalanceMinor: bigint | null;
+}> => {
+  const tolerance = params.toleranceMinor ?? 1n;
+  const start = new Date(Date.UTC(params.year, params.month - 1, 1));
+  const end = new Date(Date.UTC(params.year, params.month, 0));
+
+  const context = await loadPeriodContext(client, params, start, end);
+
+  if (!context.openingDate) {
+    throw new MissingOpeningBalanceError('Opening balance required before import', {
+      accountId: params.accountId,
+      month: params.month,
+      year: params.year,
+    });
+  }
+
+  if (!context.transactions.length) {
+    return {
+      status: 'unknown',
+      differenceMinor: null,
+      computedBalanceMinor: null,
+      statementBalanceMinor: null,
+    };
+  }
+
+  let statementBalance: bigint | null = null;
+  let totalCredits = 0n;
+  let totalDebits = 0n;
+
+  context.transactions.forEach((tx) => {
+    if (tx.amountMinor >= 0n) {
+      totalCredits += tx.amountMinor;
+    } else {
+      totalDebits += tx.amountMinor * -1n;
+    }
+    const candidate = extractStatementBalance(tx.rawRow);
+    if (candidate != null) {
+      statementBalance = candidate;
+    }
+  });
+
+  if (statementBalance == null) {
+    return {
+      status: 'unknown',
+      differenceMinor: null,
+      computedBalanceMinor: null,
+      statementBalanceMinor: null,
+    };
+  }
+
+  const computed = context.openingAmount + totalCredits - totalDebits;
+  const difference = computed - statementBalance;
+
+  if (difference < -tolerance || difference > tolerance) {
+    throw new LedgerMismatchError('Ledger balance does not match bank statement', {
+      accountId: params.accountId,
+      month: params.month,
+      year: params.year,
+      differenceMinor: difference,
+      computedBalanceMinor: computed,
+      statementBalanceMinor: statementBalance,
+    });
+  }
+
+  return {
+    status: 'reconciled',
+    differenceMinor: difference,
+    computedBalanceMinor: computed,
+    statementBalanceMinor: statementBalance,
   };
 };

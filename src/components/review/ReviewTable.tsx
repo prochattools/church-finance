@@ -25,9 +25,10 @@ interface ReviewTableProps {
   categoryTree: CategoryTreeProps;
   suggestions?: SuggestionMap;
   onAssign: (transactionId: string, payload: { categoryId?: string | null; mainCategoryId?: string | null; categoryName?: string }) => Promise<void>;
+  onCreateRule?: (transaction: LedgerTransaction) => void;
 }
 
-export function ReviewTable({ transactions, categoryTree, suggestions = {}, onAssign }: ReviewTableProps) {
+export function ReviewTable({ transactions, categoryTree, suggestions = {}, onAssign, onCreateRule }: ReviewTableProps) {
   const [selectedMain, setSelectedMain] = useState<Record<string, string>>({});
   const [selectedSub, setSelectedSub] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState<Record<string, string>>({});
@@ -363,13 +364,25 @@ export function ReviewTable({ transactions, categoryTree, suggestions = {}, onAs
                   />
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    className="rounded bg-primary px-3 py-1 text-sm font-medium text-white disabled:opacity-60"
-                    onClick={() => handleAssign(tx.id)}
-                    disabled={disabled}
-                  >
-                    {disabled ? 'Saving…' : 'Save'}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      className="rounded bg-primary px-3 py-1 text-sm font-medium text-white disabled:opacity-60"
+                      onClick={() => handleAssign(tx.id)}
+                      disabled={disabled}
+                    >
+                      {disabled ? 'Saving…' : 'Save'}
+                    </button>
+                    {onCreateRule ? (
+                      <button
+                        type="button"
+                        className="rounded border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-white/70 transition hover:bg-white/10 disabled:opacity-50"
+                        onClick={() => onCreateRule(tx)}
+                        disabled={disabled}
+                      >
+                        Create rule
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             );

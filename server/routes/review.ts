@@ -95,7 +95,11 @@ export const updateTransactionCategory = async (req: Request, res: Response) => 
 
     const updated = await prisma.transaction.update({
       where: { id: transactionId },
-      data: { categoryId: finalCategoryId },
+      data: {
+        categoryId: finalCategoryId,
+        classificationSource: 'manual',
+        classificationRuleId: null,
+      },
       include: {
         category: true,
       },

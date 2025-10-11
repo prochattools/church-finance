@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { LockedPeriodError, processImportBuffer } from '../services/importService';
+import { LedgerMismatchError, MissingOpeningBalanceError } from '../services/reconciliationService';
 
 const DEFAULT_USER_ID = process.env.DEFAULT_USER_ID ?? 'demo-user';
 const ALLOWED_MIME_TYPES = new Set([
@@ -31,6 +32,12 @@ export const handleImportUpload = async (req: Request, res: Response) => {
     console.error('Import upload failed', error);
     if (error instanceof LockedPeriodError) {
       return res.status(423).json({ error: error.message });
+    }
+    if (error instanceof MissingOpeningBalanceError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
+    if (error instanceof LedgerMismatchError) {
+      return res.status(409).json({ error: error.message, details: error.details });
     }
     return res.status(500).json({ error: 'Failed to process import file.' });
   }

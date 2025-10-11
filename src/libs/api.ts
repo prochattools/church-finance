@@ -155,3 +155,70 @@ export const unlockLedgerPeriod = async (ledgerId: string) => {
 
   return response.json();
 };
+
+type RulePayload = {
+  label: string;
+  pattern: string;
+  categoryId: string;
+  matchType?: string;
+  matchField?: string;
+  priority?: number;
+  isActive?: boolean;
+};
+
+export const fetchCategorizationRules = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/rules`, withUserHeader({ cache: 'no-store' }));
+
+  if (!response.ok) {
+    throw new Error('Failed to load rules');
+  }
+
+  return response.json();
+};
+
+export const createCategorizationRule = async (payload: RulePayload) => {
+  const response = await fetch(`${API_BASE_URL}/api/rules`, withUserHeader({
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  }));
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to create rule' }));
+    throw new Error(error.error ?? 'Failed to create rule');
+  }
+
+  return response.json();
+};
+
+export const updateCategorizationRule = async (id: string, payload: Partial<RulePayload>) => {
+  const response = await fetch(`${API_BASE_URL}/api/rules/${id}`, withUserHeader({
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  }));
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to update rule' }));
+    throw new Error(error.error ?? 'Failed to update rule');
+  }
+
+  return response.json();
+};
+
+export const deleteCategorizationRule = async (id: string) => {
+  const response = await fetch(`${API_BASE_URL}/api/rules/${id}`, withUserHeader({
+    method: 'DELETE',
+  }));
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to delete rule' }));
+    throw new Error(error.error ?? 'Failed to delete rule');
+  }
+
+  return null;
+};

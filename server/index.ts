@@ -8,6 +8,7 @@ import { getReviewTransactions, updateTransactionCategory } from './routes/revie
 import { listAccounts, lockOpeningBalance, upsertOpeningBalance } from './routes/accounts';
 import { getReconciliation } from './routes/reconciliation';
 import { lockLedger, unlockLedger } from './routes/ledgers';
+import { getRules, postRule, patchRule, removeRule } from './routes/rules';
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -29,6 +30,10 @@ app.post('/api/opening-balances/:balanceId/lock', lockOpeningBalance);
 app.get('/api/reconciliation', getReconciliation);
 app.post('/api/ledger/:ledgerId/lock', lockLedger);
 app.post('/api/ledger/:ledgerId/unlock', unlockLedger);
+app.get('/api/rules', getRules);
+app.post('/api/rules', postRule);
+app.patch('/api/rules/:id', patchRule);
+app.delete('/api/rules/:id', removeRule);
 
 const port = Number(process.env.API_PORT ?? 4000);
 

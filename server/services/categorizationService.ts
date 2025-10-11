@@ -1,4 +1,5 @@
-import type { Prisma } from '@prisma/client';
+import type { CategorizationRule, Prisma, TransactionClassificationSource } from '@prisma/client';
+import { findMatchingRule, touchRuleMatch } from './ruleEngine';
 
 const AMOUNT_THRESHOLD_EUROS = Number(process.env.AMOUNT_MATCH_THRESHOLD ?? 0.01);
 const AMOUNT_THRESHOLD_MINOR = BigInt(
@@ -9,14 +10,40 @@ export interface CategorizationCandidate {
   userId: string;
   source: string;
   normalizedDescription: string;
+  description: string;
   amountMinor: bigint;
   accountIdentifier: string;
+  counterparty?: string | null;
+  reference?: string | null;
 }
 
 export const categorizeTransaction = async (
   tx: Prisma.TransactionClient,
   candidate: CategorizationCandidate,
-): Promise<{ categoryId: string | null }> => {
+  options: { rules?: CategorizationRule[] } = {},
+): Promise<{
+  categoryId: string | null;
+  classificationSource: TransactionClassificationSource;
+  ruleId: string | null;
+}> => {
+  const rules = options.rules;
+  const rule = findMatchingRule(rules, {
+    description: candidate.description,
+    normalizedDescription: candidate.normalizedDescription,
+    counterparty: candidate.counterparty,
+    reference: candidate.reference,
+    source: candidate.source,
+  });
+
+  if (rule) {
+    await touchRuleMatch(tx, rule.id);
+    return {
+      categoryId: rule.categoryId,
+      classificationSource: 'rule',
+      ruleId: rule.id,
+    };
+  }
+
   const lowerBound = candidate.amountMinor - AMOUNT_THRESHOLD_MINOR;
   const upperBound = candidate.amountMinor + AMOUNT_THRESHOLD_MINOR;
 
@@ -41,7 +68,11 @@ export const categorizeTransaction = async (
   });
 
   if (exactMatch?.categoryId) {
-    return { categoryId: exactMatch.categoryId };
+    return {
+      categoryId: exactMatch.categoryId,
+      classificationSource: 'history',
+      ruleId: null,
+    };
   }
 
   const normalizedMatch = await tx.transaction.findFirst({
@@ -65,7 +96,11 @@ export const categorizeTransaction = async (
   });
 
   if (normalizedMatch?.categoryId) {
-    return { categoryId: normalizedMatch.categoryId };
+    return {
+      categoryId: normalizedMatch.categoryId,
+      classificationSource: 'history',
+      ruleId: null,
+    };
   }
 
   const history = await tx.transaction.findMany({
@@ -95,8 +130,16 @@ export const categorizeTransaction = async (
     .find(([, count]) => count >= 3);
 
   if (popularEntry) {
-    return { categoryId: popularEntry[0] };
+    return {
+      categoryId: popularEntry[0],
+      classificationSource: 'history',
+      ruleId: null,
+    };
   }
 
-  return { categoryId: null };
+  return {
+    categoryId: null,
+    classificationSource: 'none',
+    ruleId: null,
+  };
 };

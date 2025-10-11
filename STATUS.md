@@ -141,3 +141,46 @@ flowchart TD
 - NODE_ENV / APP_ENV unset; treating environment as development.
 - Direct Dokploy endpoint 10.0.2.4:5433 also unreachable from current session.
 - Supabase MCP bridge may require additional network access; postpone migrations and Step 3 writes until connectivity restored.
+
+## Step 3 – Rule Engine Planning (2025-10-11T20:10Z)
+- **Data flow recap**: Imports run through `lib/import/*` → `processImportBuffer` (dedupe + category heuristics) → transactions persisted with ledger/account auto-provisioning. Running balances and reconciliation insights surface via `reconciliationService` and `ReconciliationCard`.
+- **Categorization today**: `categorizationService` inspects historical transactions only (source + normalized description + amount tolerance). No persisted rules or audit trail; suggestions on `/review` rely on client-side heuristics.
+- **UI observations**: Review queue presents many inline controls in a tall table; no shortcuts to apply recurring rules. Ledger view gained running-balance column but reconciliation status still manual (lock state only).
+- **Reliability gaps**:
+  - No deterministic rule engine; repeated vendors require manual categorization.
+  - Reconciliation service does not enforce closing-balance parity post-import.
+  - Double-entry parity not checked; credits/debits can drift without alert.
+  - Locked ledgers block imports, but nothing validates opening balance existence before new period imports.
+- **Optimization targets**:
+  - Introduce `Rule` model with priority + pattern matching (regex/contains) + audit metadata.
+  - Extend import pipeline to evaluate rules prior to historical heuristics.
+  - Add balance guards (LedgerMismatchError) triggered after import batches.
+  - Surface reconciliation badges on `/ledger` summary cards and provide rule management UI inside `/review`.
+  - Collapse less-used Review controls and add quick accept actions to reduce scroll.
+- **Next steps**:
+  1. Add Prisma migration for rule engine tables (rules, maybe rule audit).
+  2. Implement `ruleEngine` service with evaluation + CRUD endpoints.
+  3. Wire import + review flows to use rules, honoring ledger locks.
+  4. Add automatic month-end balance validation + status badges.
+  5. Refresh STATUS.md with progress and testing outcomes.
+
+## Step 3 – Rule Engine Implementation (2025-10-11T20:43Z)
+- **Schema**: Added `CategorizationRule` model with match type/field enums, transaction classification source metadata, and ledger lock table. Migration `20251011204000_rule_engine` introduces enums and new relations.
+- **Services**:
+  - New `ruleEngine` service for fetching/evaluating/maintaining prioritised rules.
+  - `categorizationService` now returns classification source + rule id, falling back to historical heuristics when no rule matches.
+  - Import pipeline fetches active rules once, applies them before historical lookups, enforces opening-balance presence, validates month-end balances via `validateLedgerBalance`, and auto-locks reconciled ledgers.
+  - Upload route surfaces granular errors (`423` locked, `400` missing opening, `409` mismatch).
+- **API**: Added `/api/rules` CRUD endpoints; ledger endpoint now returns classification metadata and ledger snapshots (month/year/lock status).
+- **UI**:
+  - Review page now features a two-column layout with a `RuleManager` side panel, quicker rule drafting from each transaction row, and reduced scrolling.
+  - Ledger page shows running-balance column, reconciliation status badges, and an enhanced `ReconciliationCard` that signals status and auto-locks completed periods.
+  - Dashboard highlights reconciliation progress and rule counts for at-a-glance health.
+- **Testing**: `npm run test` (Vitest) ✅ covering parsers, dedupe hashing, import idempotency, and rule-engine adjustments.
+- **Caveats**:
+  - Remote database remains unreachable; migrations were not deployed (prisma db pull/migrate still pending network access).
+  - Rule management UI expects server pipeline mode; offline mode disables actions gracefully.
+- **Next actions**:
+  1. Re-run `npx prisma migrate deploy` once database connectivity (Dokploy or MCP bridge) is restored.
+  2. Populate initial CategorizationRule set in production and verify auto-lock behaviour on live imports.
+  3. Proceed to Step 4 (AI/ML-based pattern learning) after confirming rule engine performance in staging/prod.

@@ -14,13 +14,18 @@ type StoredTransaction = {
   normalizedKey: string;
   date: Date;
   categoryId: string | null;
+  accountId?: string | null;
+  rawRow?: Record<string, unknown> | null;
+  classificationSource?: string;
 };
 
 class FakePrismaClient {
   accounts: Array<{ id: string; userId: string; identifier: string; name: string; currency: string }> = [];
-  ledgers: Array<{ id: string; userId: string; month: number; year: number }> = [];
+  ledgers: Array<{ id: string; userId: string; month: number; year: number; lockedAt: Date | null; lockedBy: string | null }> = [];
   transactions: StoredTransaction[] = [];
   importBatches: Array<{ id: string; userId: string }> = [];
+  rules: Array<{ id: string; userId: string; isActive: boolean; priority: number; updatedAt: Date }> = [];
+  openingBalances: Array<{ accountId: string; amountMinor: bigint; effectiveDate: Date }> = [];
 
   async $transaction<T>(callback: (tx: ReturnType<FakePrismaClient['createTx']>) => Promise<T>): Promise<T> {
     const tx = this.createTx();
@@ -48,7 +53,20 @@ class FakePrismaClient {
             currency: create.currency,
           };
           this.accounts.push(record);
+          this.openingBalances.push({
+            accountId: record.id,
+            amountMinor: 0n,
+            effectiveDate: new Date('2024-01-01T00:00:00Z'),
+          });
           return record;
+        },
+        findFirst: async ({ where }: any) => {
+          if (!where?.id || !where?.userId) {
+            return null;
+          }
+          return this.accounts.find(
+            (account) => account.id === where.id && account.userId === where.userId,
+          ) ?? null;
         },
       },
       ledger: {
@@ -171,6 +189,9 @@ class FakePrismaClient {
               normalizedKey: entry.normalizedKey,
               date: entry.date instanceof Date ? entry.date : new Date(entry.date),
               categoryId: entry.categoryId ?? null,
+              accountId: entry.accountId ?? null,
+              rawRow: entry.rawRow ?? null,
+              classificationSource: entry.classificationSource ?? 'none',
             });
             count += 1;
           });
@@ -185,6 +206,34 @@ class FakePrismaClient {
           return record;
         },
         update: async () => undefined,
+      },
+      openingBalance: {
+        findMany: async ({ where }: any) => {
+          const accountId = where?.accountId;
+          const effectiveDate = where?.effectiveDate?.lte
+            ? new Date(where.effectiveDate.lte)
+            : new Date();
+          return this.openingBalances
+            .filter((entry) => (!accountId || entry.accountId === accountId) && entry.effectiveDate <= effectiveDate)
+            .sort((a, b) => a.effectiveDate.getTime() - b.effectiveDate.getTime())
+            .map((entry) => ({
+              id: crypto.randomUUID(),
+              accountId: entry.accountId,
+              amountMinor: entry.amountMinor,
+              effectiveDate: entry.effectiveDate,
+              currency: 'EUR',
+              note: null,
+              createdBy: 'test',
+              createdAt: new Date(),
+              lockedAt: null,
+              lockedBy: null,
+            }));
+        },
+      },
+      categorizationRule: {
+        findMany: async () => [],
+        update: async () => null,
+        create: async () => null,
       },
     };
   }

@@ -6,6 +6,12 @@ import { attachHashes, partitionDuplicates } from '../../lib/import/dedupe';
 import { deriveDirection, normalizeWhitespace } from '../../lib/import/normalizers';
 import type { ImportSummary, ImportSummaryRowError, ImportFormat, ParsedRowSuccess } from '../../lib/import/types';
 import { categorizeTransaction } from './categorizationService';
+import { fetchActiveRules } from './ruleEngine';
+import {
+  LedgerMismatchError,
+  MissingOpeningBalanceError,
+  validateLedgerBalance,
+} from './reconciliationService';
 
 interface ProcessImportOptions {
   buffer: Buffer;
@@ -34,6 +40,51 @@ export class LockedPeriodError extends Error {
     this.name = 'LockedPeriodError';
   }
 }
+
+const autoLockLedger = async (tx: TxClient, ledgerId: string, userId: string) => {
+  if (!LOCKS_ENABLED) {
+    return;
+  }
+
+  const existing = await tx.ledger.findUnique({
+    where: { id: ledgerId },
+    select: {
+      lockedAt: true,
+    },
+  });
+
+  if (!existing || existing.lockedAt) {
+    return;
+  }
+
+  const now = new Date();
+
+  await tx.ledger.update({
+    where: { id: ledgerId },
+    data: {
+      lockedAt: now,
+      lockedBy: userId,
+      lockNote: 'Auto-locked after reconciliation',
+    },
+  });
+
+  await tx.ledgerLock.upsert({
+    where: {
+      ledgerId,
+    },
+    create: {
+      ledgerId,
+      lockedAt: now,
+      lockedBy: userId,
+      note: 'Auto-locked after reconciliation',
+    },
+    update: {
+      lockedAt: now,
+      lockedBy: userId,
+      note: 'Auto-locked after reconciliation',
+    },
+  });
+};
 
 const ensureLedger = async (tx: TxClient, userId: string, date: Date): Promise<string> => {
   const year = date.getUTCFullYear();
@@ -208,6 +259,7 @@ export const processImportBufferWithClient = async (
     const { uniques, duplicates } = partitionDuplicates(hashedRows, existingHashes);
 
     const accountMap = await ensureAccounts(tx, userId, uniques);
+    const activeRules = await fetchActiveRules(tx, userId);
 
     const ledgerIds = new Map<string, string>();
     const ensureLedgerCached = async (date: Date) => {
@@ -223,6 +275,7 @@ export const processImportBufferWithClient = async (
 
     let autoCategorized = 0;
     let imported = 0;
+    const reconciliationTargets = new Map<string, { accountId: string; month: number; year: number; ledgerId: string }>();
 
     const now = new Date();
 
@@ -232,19 +285,36 @@ export const processImportBufferWithClient = async (
           const ledgerId = await ensureLedgerCached(row.date);
           const accountId = accountMap.get(row.accountIdentifier) ?? null;
 
-          const { categoryId } = await categorizeTransaction(tx, {
+          const categorization = await categorizeTransaction(tx, {
             userId,
             source: row.source,
             normalizedDescription: row.normalizedDescription,
+            description: row.description,
             amountMinor: row.amountMinor,
             accountIdentifier: row.accountIdentifier,
-          });
+            counterparty: row.counterparty,
+            reference: row.reference,
+          }, { rules: activeRules });
 
-          if (categoryId) {
+          if (categorization.categoryId) {
             autoCategorized += 1;
           }
 
           const direction = deriveDirection(row.amountMinor);
+
+          if (accountId) {
+            const month = row.date.getUTCMonth() + 1;
+            const year = row.date.getUTCFullYear();
+            const key = `${accountId}|${year}|${month}`;
+            if (!reconciliationTargets.has(key)) {
+              reconciliationTargets.set(key, {
+                accountId,
+                month,
+                year,
+                ledgerId,
+              });
+            }
+          }
 
           return {
             userId,
@@ -263,7 +333,9 @@ export const processImportBufferWithClient = async (
             hash: row.hash,
             sourceFile: filename,
             rawRow: row.raw,
-            categoryId,
+            categoryId: categorization.categoryId,
+            classificationSource: categorization.classificationSource,
+            classificationRuleId: categorization.ruleId,
             createdAt: now,
             updatedAt: now,
           };
@@ -284,6 +356,19 @@ export const processImportBufferWithClient = async (
 
     const duplicateCount = duplicates.length + (uniques.length - imported);
     const pendingReview = imported - autoCategorized;
+
+    for (const target of reconciliationTargets.values()) {
+      const validation = await validateLedgerBalance(tx, {
+        userId,
+        accountId: target.accountId,
+        month: target.month,
+        year: target.year,
+      });
+
+      if (validation.status === 'reconciled') {
+        await autoLockLedger(tx, target.ledgerId, userId);
+      }
+    }
 
     await tx.importBatch.update({
       where: { id: batch.id },

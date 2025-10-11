@@ -3,7 +3,14 @@
 import Papa, { ParseResult } from 'papaparse';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import initialLedger from '@/data/initial-ledger.json';
-import { fetchLedger, uploadImportFile } from '@/libs/api';
+import {
+  fetchLedger,
+  uploadImportFile,
+  fetchCategorizationRules,
+  createCategorizationRule,
+  updateCategorizationRule,
+  deleteCategorizationRule,
+} from '@/libs/api';
 
 type AccountLabelEntry = {
   keys: string[];
@@ -57,6 +64,27 @@ const ACCOUNT_LABEL_LOOKUP: Map<string, AccountLabelEntry> = ACCOUNT_LABEL_ENTRI
   },
   new Map<string, AccountLabelEntry>(),
 );
+
+const normalizeRuleResponse = (rule: any): RuleSummary => ({
+  id: rule.id,
+  label: rule.label,
+  pattern: rule.pattern,
+  matchType: rule.matchType,
+  matchField: rule.matchField,
+  categoryId: rule.categoryId,
+  categoryName: rule.category?.name ?? null,
+  priority: rule.priority,
+  isActive: rule.isActive,
+  createdAt: rule.createdAt,
+  updatedAt: rule.updatedAt,
+});
+
+const sortRules = (a: RuleSummary, b: RuleSummary) => {
+  if (a.priority !== b.priority) {
+    return b.priority - a.priority;
+  }
+  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+};
 
 const resolveAccountMetadata = (
   rawValue: string | null | undefined,
@@ -130,6 +158,39 @@ type InitialLedgerFile = {
   transactions: RawTransaction[];
 };
 
+type RuleSummary = {
+  id: string;
+  label: string;
+  pattern: string;
+  matchType: string;
+  matchField: string;
+  categoryId: string;
+  categoryName?: string | null;
+  priority: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type RuleInput = {
+  label: string;
+  pattern: string;
+  categoryId: string;
+  matchType?: string;
+  matchField?: string;
+  priority?: number;
+  isActive?: boolean;
+};
+
+type LedgerMeta = {
+  id: string;
+  month: number;
+  year: number;
+  lockedAt: string | null;
+  lockedBy: string | null;
+  lockNote: string | null;
+};
+
 type ApiLedgerTransaction = {
   id: string;
   date: string | Date;
@@ -151,6 +212,10 @@ type ApiLedgerTransaction = {
   createdAt?: string | Date | null;
   runningBalance?: number | null;
   runningBalanceMinor?: string | null;
+  classificationSource?: string | null;
+  classificationRuleId?: string | null;
+  classificationRuleLabel?: string | null;
+  ledgerLockedAt?: string | Date | null;
 };
 
 type ApiLedgerSummary = {
@@ -163,6 +228,14 @@ type ApiLedgerSummary = {
 type ApiLedgerResponse = {
   transactions: ApiLedgerTransaction[];
   summary: ApiLedgerSummary;
+  ledgers?: Array<{
+    id: string;
+    month: number;
+    year: number;
+    lockedAt: string | null;
+    lockedBy: string | null;
+    lockNote: string | null;
+  }>;
 };
 
 export interface Category {
@@ -193,6 +266,10 @@ export interface LedgerTransaction {
   needsManualCategory: boolean;
   runningBalance?: number | null;
   runningBalanceMinor?: string | null;
+  classificationSource?: string;
+  classificationRuleId?: string | null;
+  classificationRuleLabel?: string | null;
+  ledgerLockedAt?: string | null;
 }
 
 interface ImportSummary {
@@ -235,6 +312,12 @@ interface LedgerContextValue {
   ) => Promise<void>;
   clearAll: () => void;
   serverPipelineEnabled: boolean;
+  rules: RuleSummary[];
+  refreshRules: () => Promise<void>;
+  createRule: (payload: RuleInput) => Promise<void>;
+  updateRule: (id: string, payload: Partial<RuleInput>) => Promise<void>;
+  deleteRule: (id: string) => Promise<void>;
+  ledgerMeta: LedgerMeta[];
 }
 
 const LedgerContext = createContext<LedgerContextValue | undefined>(undefined);
@@ -282,6 +365,9 @@ const mapApiTransaction = (tx: ApiLedgerTransaction): LedgerTransaction => {
     : runningMinor
     ? Number(runningMinor) / 100
     : null;
+  const ledgerLockedAt = tx.ledgerLockedAt
+    ? new Date(tx.ledgerLockedAt).toISOString()
+    : null;
 
   return {
     id: tx.id,
@@ -304,6 +390,10 @@ const mapApiTransaction = (tx: ApiLedgerTransaction): LedgerTransaction => {
     needsManualCategory: !tx.categoryId,
     runningBalance,
     runningBalanceMinor: runningMinor,
+    classificationSource: tx.classificationSource ?? 'none',
+    classificationRuleId: tx.classificationRuleId ?? null,
+    classificationRuleLabel: tx.classificationRuleLabel ?? null,
+    ledgerLockedAt,
   };
 };
 
@@ -900,6 +990,8 @@ const categorizeTransactions = (
 
 export const LedgerProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<LedgerState>(DEFAULT_STATE);
+  const [rules, setRules] = useState<RuleSummary[]>([]);
+  const [ledgerMeta, setLedgerMeta] = useState<LedgerMeta[]>([]);
 
   useEffect(() => {
     setState(loadState());
@@ -908,6 +1000,20 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     persistState(state);
   }, [state]);
+
+  const refreshRules = useCallback(async () => {
+    if (!USE_SERVER_PIPELINE) return;
+    try {
+      const response = await fetchCategorizationRules();
+      if (!Array.isArray(response)) {
+        return;
+      }
+      const normalized = response.map(normalizeRuleResponse).sort(sortRules);
+      setRules(normalized);
+    } catch (error) {
+      console.error('Failed to load categorization rules', error);
+    }
+  }, []);
 
   const refreshFromServer = useCallback(async () => {
     if (!USE_SERVER_PIPELINE) {
@@ -922,9 +1028,48 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
         categories: mergeCategoriesWithServer(current.categories, payload.transactions),
         transactions: mapped,
       }));
+      if (Array.isArray(payload.ledgers)) {
+        setLedgerMeta(
+          payload.ledgers.map((ledger) => ({
+            id: ledger.id,
+            month: ledger.month,
+            year: ledger.year,
+            lockedAt: ledger.lockedAt,
+            lockedBy: ledger.lockedBy,
+            lockNote: ledger.lockNote,
+          })),
+        );
+      }
+      await refreshRules();
     } catch (error) {
       console.error('Failed to refresh ledger from API', error);
     }
+  }, [refreshRules]);
+
+  const createRule = useCallback(async (payload: RuleInput) => {
+    if (!USE_SERVER_PIPELINE) {
+      throw new Error('Rule management unavailable in offline mode');
+    }
+    const result = await createCategorizationRule(payload);
+    const normalized = normalizeRuleResponse(result);
+    setRules((current) => [normalized, ...current.filter((rule) => rule.id !== normalized.id)].sort(sortRules));
+  }, []);
+
+  const updateRule = useCallback(async (id: string, payload: Partial<RuleInput>) => {
+    if (!USE_SERVER_PIPELINE) {
+      throw new Error('Rule management unavailable in offline mode');
+    }
+    const result = await updateCategorizationRule(id, payload);
+    const normalized = normalizeRuleResponse(result);
+    setRules((current) => [normalized, ...current.filter((rule) => rule.id !== id)].sort(sortRules));
+  }, []);
+
+  const deleteRule = useCallback(async (id: string) => {
+    if (!USE_SERVER_PIPELINE) {
+      throw new Error('Rule management unavailable in offline mode');
+    }
+    await deleteCategorizationRule(id);
+    setRules((current) => current.filter((rule) => rule.id !== id));
   }, []);
 
   useEffect(() => {
@@ -1142,6 +1287,9 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
                 mainCategoryName: resolvedMainName,
                 autoCategorized: false,
                 needsManualCategory: !resolvedCategoryId,
+                classificationSource: 'manual',
+                classificationRuleId: null,
+                classificationRuleLabel: null,
               }
             : item,
         );
@@ -1171,8 +1319,14 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
       assignCategory,
       clearAll,
       serverPipelineEnabled: USE_SERVER_PIPELINE,
+      rules,
+      refreshRules,
+      createRule,
+      updateRule,
+      deleteRule,
+      ledgerMeta,
     }),
-    [state.transactions, state.categories, categoryTree, summary, reviewTransactions, importCsv, assignCategory, clearAll],
+    [state.transactions, state.categories, categoryTree, summary, reviewTransactions, importCsv, assignCategory, clearAll, rules, refreshRules, createRule, updateRule, deleteRule, ledgerMeta],
   );
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
