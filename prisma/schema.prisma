@@ -47,6 +47,8 @@ model User {
   createdAt    DateTime      @default(now())
   transactions Transaction[]
   ledgers      Ledger[]
+  accounts     Account[]
+  importBatches ImportBatch[]
 }
 
 model Category {
@@ -65,31 +67,125 @@ model Ledger {
   year         Int
   transactions Transaction[]
   createdAt    DateTime       @default(now())
+  lockedAt     DateTime?
+  lockedBy     String?
+  lockNote     String?
+  lock         LedgerLock?
 
   @@unique([userId, month, year])
+}
+
+model Account {
+  id         String     @id @default(uuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  name       String
+  identifier String
+  currency   String     @default("EUR")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  transactions Transaction[]
+  openingBalances OpeningBalance[]
+
+  @@unique([userId, identifier])
+}
+
+model OpeningBalance {
+  id            String   @id @default(uuid())
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id])
+  effectiveDate DateTime
+  amountMinor   BigInt
+  currency      String   @default("EUR")
+  note          String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  lockedAt      DateTime?
+  lockedBy      String?
+
+  @@unique([accountId, effectiveDate])
+  @@index([accountId, effectiveDate])
+}
+
+model LedgerLock {
+  id        String   @id @default(uuid())
+  ledgerId  String   @unique
+  ledger    Ledger   @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  lockedAt  DateTime
+  lockedBy  String?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ImportBatch {
+  id            String             @id @default(uuid())
+  userId        String
+  user          User               @relation(fields: [userId], references: [id])
+  filename      String
+  fileType      String?
+  status        ImportBatchStatus  @default(pending)
+  totalRows     Int                @default(0)
+  importedRows  Int                @default(0)
+  duplicateRows Int                @default(0)
+  errorRows     Int                @default(0)
+  autoCategorizedRows Int          @default(0)
+  startedAt     DateTime           @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  transactions Transaction[]
+
+  @@index([userId, startedAt])
 }
 
 model Transaction {
   id            String     @id @default(uuid())
   userId        String
   user          User       @relation(fields: [userId], references: [id])
+  accountId     String?
+  account       Account?   @relation(fields: [accountId], references: [id])
   ledgerId      String?
   ledger        Ledger?    @relation(fields: [ledgerId], references: [id])
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
   date          DateTime
   description   String
   normalizedKey String     @default("")
-  amount        Float
+  amountMinor   BigInt
+  currency      String     @default("EUR")
+  direction     TransactionDirection @default(credit)
   source        String
+  counterparty  String?
+  reference     String?
+  hash          String
+  sourceFile    String?
+  rawRow        Json?
   categoryId    String?
   category      Category?  @relation(fields: [categoryId], references: [id])
   createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   @@index([userId, date])
-  @@index([userId, normalizedKey, amount])
-  @@unique([userId, date, amount, normalizedKey])
+  @@index([userId, normalizedKey, amountMinor])
+  @@index([userId, accountId, date])
+  @@unique([hash])
 }
 
 enum SubscriptionStatus {
   active
   inactive
+}
+
+enum TransactionDirection {
+  credit
+  debit
+}
+
+enum ImportBatchStatus {
+  pending
+  completed
+  failed
 }

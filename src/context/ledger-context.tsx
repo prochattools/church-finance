@@ -3,6 +3,7 @@
 import Papa, { ParseResult } from 'papaparse';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import initialLedger from '@/data/initial-ledger.json';
+import { fetchLedger, uploadImportFile } from '@/libs/api';
 
 type AccountLabelEntry = {
   keys: string[];
@@ -129,6 +130,41 @@ type InitialLedgerFile = {
   transactions: RawTransaction[];
 };
 
+type ApiLedgerTransaction = {
+  id: string;
+  date: string | Date;
+  description: string;
+  amount: number;
+  amountMinor?: string;
+  currency?: string;
+  direction?: 'credit' | 'debit';
+  source: string;
+  counterparty?: string | null;
+  reference?: string | null;
+  accountLabel?: string | null;
+  accountIdentifier?: string | null;
+  sourceFile?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  ledgerMonth?: number | null;
+  ledgerYear?: number | null;
+  createdAt?: string | Date | null;
+  runningBalance?: number | null;
+  runningBalanceMinor?: string | null;
+};
+
+type ApiLedgerSummary = {
+  total: number;
+  reviewCount: number;
+  autoCategorized: number;
+  totalAmount: number;
+};
+
+type ApiLedgerResponse = {
+  transactions: ApiLedgerTransaction[];
+  summary: ApiLedgerSummary;
+};
+
 export interface Category {
   id: UUID;
   name: string;
@@ -155,12 +191,20 @@ export interface LedgerTransaction {
   createdAt: string;
   autoCategorized: boolean;
   needsManualCategory: boolean;
+  runningBalance?: number | null;
+  runningBalanceMinor?: string | null;
 }
 
 interface ImportSummary {
   importedCount: number;
   autoCategorized: number;
   reviewCount: number;
+  duplicateCount?: number;
+  errorCount?: number;
+  totalRows?: number;
+  format?: string;
+  batchId?: string;
+  errors?: Array<{ rowNumber: number; message: string }>;
 }
 
 interface LedgerState {
@@ -190,6 +234,7 @@ interface LedgerContextValue {
     options: { categoryId?: UUID | null; mainCategoryId?: UUID | null; categoryName?: string }
   ) => Promise<void>;
   clearAll: () => void;
+  serverPipelineEnabled: boolean;
 }
 
 const LedgerContext = createContext<LedgerContextValue | undefined>(undefined);
@@ -197,6 +242,9 @@ const LedgerContext = createContext<LedgerContextValue | undefined>(undefined);
 const STORAGE_KEY = 'ledger-mvp-state-v2';
 
 const COLOR_PALETTE = ['#4C6EF5', '#15AABF', '#40C057', '#FCC419', '#FF6B6B', '#7950F2', '#F06595', '#20C997'];
+
+const PIPELINE_MODE = process.env.NEXT_PUBLIC_IMPORT_PIPELINE_MODE ?? 'server';
+const USE_SERVER_PIPELINE = PIPELINE_MODE !== 'client';
 
 const REVIEW_MAIN_CATEGORY: Category = {
   id: 'cat-review',
@@ -218,6 +266,46 @@ const normaliseDescription = (value: string): string =>
     .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+const mapApiTransaction = (tx: ApiLedgerTransaction): LedgerTransaction => {
+  const parsedDate = tx.date instanceof Date ? tx.date : new Date(tx.date);
+  const safeDate = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+  const isoDate = safeDate.toISOString();
+  const normalizedKey = normaliseDescription(tx.description);
+  const ledgerMonth = tx.ledgerMonth ?? safeDate.getUTCMonth() + 1;
+  const ledgerYear = tx.ledgerYear ?? safeDate.getUTCFullYear();
+  const createdAtSource = tx.createdAt ? new Date(tx.createdAt) : safeDate;
+  const createdAt = Number.isNaN(createdAtSource.getTime()) ? isoDate : createdAtSource.toISOString();
+  const runningMinor = tx.runningBalanceMinor ?? (typeof tx.runningBalance === 'number' ? String(Math.round(tx.runningBalance * 100)) : null);
+  const runningBalance = typeof tx.runningBalance === 'number'
+    ? tx.runningBalance
+    : runningMinor
+    ? Number(runningMinor) / 100
+    : null;
+
+  return {
+    id: tx.id,
+    date: isoDate,
+    description: tx.description,
+    amount: tx.amount,
+    source: tx.source,
+    accountLabel: tx.accountLabel ?? tx.accountIdentifier ?? null,
+    accountIdentifier: tx.accountIdentifier ?? null,
+    normalizedKey,
+    notificationDetail: tx.reference ?? null,
+    categoryId: tx.categoryId ?? null,
+    categoryName: tx.categoryName ?? null,
+    mainCategoryId: null,
+    mainCategoryName: null,
+    ledgerMonth,
+    ledgerYear,
+    createdAt,
+    autoCategorized: Boolean(tx.categoryId),
+    needsManualCategory: !tx.categoryId,
+    runningBalance,
+    runningBalanceMinor: runningMinor,
+  };
+};
 
 const createId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `gen-${Date.now()}-${Math.random()}`;
@@ -532,6 +620,32 @@ const mergeStoredState = (stored: Partial<LedgerState> | null): LedgerState => {
   return { categories, transactions };
 };
 
+const mergeCategoriesWithServer = (current: Category[], apiTransactions: ApiLedgerTransaction[]): Category[] => {
+  if (!apiTransactions.length) return current;
+
+  const existingMap = new Map(current.map((category) => [category.id, category] as const));
+  const additions: Category[] = [];
+
+  apiTransactions.forEach((tx) => {
+    if (!tx.categoryId || !tx.categoryName || existingMap.has(tx.categoryId)) {
+      return;
+    }
+
+    const color = COLOR_PALETTE[(current.length + additions.length) % COLOR_PALETTE.length];
+    const category: Category = {
+      id: tx.categoryId,
+      name: tx.categoryName,
+      parentId: null,
+      color,
+    };
+
+    existingMap.set(category.id, category);
+    additions.push(category);
+  });
+
+  return additions.length ? [...current, ...additions] : current;
+};
+
 const loadState = (): LedgerState => {
   if (typeof window === 'undefined') {
     return DEFAULT_STATE;
@@ -795,6 +909,30 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
     persistState(state);
   }, [state]);
 
+  const refreshFromServer = useCallback(async () => {
+    if (!USE_SERVER_PIPELINE) {
+      return;
+    }
+
+    try {
+      const payload: ApiLedgerResponse = await fetchLedger();
+      const mapped = payload.transactions.map(mapApiTransaction);
+
+      setState((current) => ({
+        categories: mergeCategoriesWithServer(current.categories, payload.transactions),
+        transactions: mapped,
+      }));
+    } catch (error) {
+      console.error('Failed to refresh ledger from API', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (USE_SERVER_PIPELINE) {
+      refreshFromServer();
+    }
+  }, [refreshFromServer]);
+
   const { map: categoryIndex, tree: categoryTree } = useMemo(
     () => ensureCategoryIndex(state.categories),
     [state.categories],
@@ -820,6 +958,26 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
 
   const importCsv = useCallback(
     async (file: File): Promise<ImportSummary> => {
+      if (USE_SERVER_PIPELINE) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const summary = await uploadImportFile(formData);
+        await refreshFromServer();
+
+        return {
+          importedCount: summary.importedCount,
+          autoCategorized: summary.autoCategorizedCount,
+          reviewCount: summary.pendingReviewCount,
+          duplicateCount: summary.duplicateCount,
+          errorCount: summary.errorCount,
+          totalRows: summary.totalRows,
+          format: summary.format,
+          batchId: summary.batchId,
+          errors: summary.errors,
+        };
+      }
+
       const rows = await parseCsvFile(file);
       const prepared = rows
         .map(buildTransactionFromRow)
@@ -886,7 +1044,7 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
         reviewCount,
       };
     },
-    [state.transactions, categoryIndex],
+    [refreshFromServer, state.transactions, categoryIndex],
   );
 
   const assignCategory = useCallback(
@@ -1012,6 +1170,7 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
       importCsv,
       assignCategory,
       clearAll,
+      serverPipelineEnabled: USE_SERVER_PIPELINE,
     }),
     [state.transactions, state.categories, categoryTree, summary, reviewTransactions, importCsv, assignCategory, clearAll],
   );

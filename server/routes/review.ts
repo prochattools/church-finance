@@ -13,6 +13,9 @@ export const getReviewTransactions = async (req: Request, res: Response) => {
           userId,
           categoryId: null,
         },
+        include: {
+          account: true,
+        },
         orderBy: {
           date: 'desc',
         },
@@ -29,8 +32,14 @@ export const getReviewTransactions = async (req: Request, res: Response) => {
         id: tx.id,
         date: tx.date,
         description: tx.description,
-        amount: tx.amount,
+        amount: Number(tx.amountMinor) / 100,
+        amountMinor: tx.amountMinor.toString(),
+        currency: tx.currency,
         source: tx.source,
+        counterparty: tx.counterparty,
+        accountIdentifier: tx.account?.identifier ?? null,
+        accountName: tx.account?.name ?? null,
+        createdAt: tx.createdAt,
       })),
       categories,
     });
@@ -56,11 +65,20 @@ export const updateTransactionCategory = async (req: Request, res: Response) => 
       },
       select: {
         id: true,
+        ledger: {
+          select: {
+            lockedAt: true,
+          },
+        },
       },
     });
 
     if (!tx) {
       return res.status(404).json({ error: 'Transaction not found.' });
+    }
+
+    if (process.env.RECONCILIATION_LOCKS_ENABLED !== 'false' && tx.ledger?.lockedAt) {
+      return res.status(423).json({ error: 'Ledger period is locked; cannot modify transaction.' });
     }
 
     let finalCategoryId = categoryId ?? null;

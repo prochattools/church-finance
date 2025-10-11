@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { UploadCsvButton } from '@/components/ledger/UploadCsvButton';
+import { ReconciliationCard } from '@/components/ledger/ReconciliationCard';
 import {
   LedgerTable,
   DEFAULT_LEDGER_COLUMN_VISIBILITY,
@@ -245,6 +246,7 @@ const COLUMN_DEFINITIONS: Array<{ key: keyof LedgerColumnVisibility; label: stri
   { key: 'description', label: 'Payee' },
   { key: 'amount', label: 'Amount' },
   { key: 'category', label: 'Category' },
+  { key: 'balance', label: 'Running balance' },
 ];
 
 type BreakdownEntry = {
@@ -1418,6 +1420,7 @@ function TransactionsView({ transactions, categoryTree }: { transactions: Ledger
           </div>
         </div>
       </div>
+      <ReconciliationCard />
 
       <section className="rounded-2xl border border-white/5 bg-[#060F1F]/60 p-6 shadow-inner shadow-black/30">
         <header className="flex flex-wrap items-center justify-between gap-3 pb-4">

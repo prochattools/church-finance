@@ -11,6 +11,7 @@ export type LedgerColumnVisibility = {
   description: boolean;
   amount: boolean;
   category: boolean;
+  balance: boolean;
 };
 
 export const DEFAULT_LEDGER_COLUMN_VISIBILITY: LedgerColumnVisibility = {
@@ -19,6 +20,7 @@ export const DEFAULT_LEDGER_COLUMN_VISIBILITY: LedgerColumnVisibility = {
   description: true,
   amount: true,
   category: true,
+  balance: true,
 };
 
 interface LedgerSummary {
@@ -63,6 +65,7 @@ export function LedgerTable({
               {columnVisibility.description && <Th>Payee</Th>}
               {columnVisibility.amount && <Th align="right" className="w-[140px]">Amount</Th>}
               {columnVisibility.category && <Th className="w-[200px]">Category</Th>}
+              {columnVisibility.balance && <Th align="right" className="w-[160px]">Running Balance</Th>}
             </tr>
           </thead>
           <tbody>
@@ -143,6 +146,16 @@ export function LedgerTable({
                       ) : (
                         <FlagPill href="/review">Needs manual review</FlagPill>
                       )}
+                    </Td>
+                  )}
+                  {columnVisibility.balance && (
+                    <Td align="right" className="align-top font-semibold">
+                      {typeof tx.runningBalance === 'number'
+                        ? tx.runningBalance.toLocaleString(undefined, {
+                            style: 'currency',
+                            currency: 'EUR',
+                          })
+                        : '—'}
                     </Td>
                   )}
                 </tr>
