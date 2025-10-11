@@ -1,3 +1,8 @@
+// --------------------------------------
+//  Prisma Schema for ChurchFinance
+//  Accounting + Reconciliation + Rules
+// --------------------------------------
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -84,7 +89,7 @@ model Account {
   identifier String
   currency   String     @default("EUR")
   createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  updatedAt  DateTime   @default(now())
 
   transactions Transaction[]
   openingBalances OpeningBalance[]
@@ -135,7 +140,7 @@ model ImportBatch {
   startedAt     DateTime           @default(now())
   completedAt   DateTime?
   createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  updatedAt     DateTime           @default(now())
 
   transactions Transaction[]
   rules        CategorizationRule[]
@@ -171,7 +176,7 @@ model Transaction {
   classificationRuleId String?
   classificationRule   CategorizationRule? @relation(fields: [classificationRuleId], references: [id])
   createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  updatedAt     DateTime   @default(now())
 
   @@index([userId, date])
   @@index([userId, normalizedKey, amountMinor])
@@ -197,7 +202,7 @@ model CategorizationRule {
   isActive      Boolean          @default(true)
   createdBy     String?
   createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  updatedAt     DateTime         @default(now())
   lastMatchedAt DateTime?
 
   transactions  Transaction[]
