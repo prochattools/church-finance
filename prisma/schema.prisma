@@ -54,6 +54,7 @@ model User {
   ledgers      Ledger[]
   accounts     Account[]
   importBatches ImportBatch[]
+  categorizationRules CategorizationRule[]
 }
 
 model Category {
@@ -62,6 +63,7 @@ model Category {
   color         String?
   createdAt     DateTime       @default(now())
   transactions  Transaction[]
+  categorizationRules CategorizationRule[]
 }
 
 model Ledger {
