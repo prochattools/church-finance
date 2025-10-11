@@ -1,6 +1,6 @@
 # =====================================
-# ChurchFinance - Universal Next.js Dockerfile
-# Works on macOS (local) + Linux (production)
+# ChurchFinance - Next.js universal Dockerfile
+# Works on macOS + Linux (Dokploy)
 # =====================================
 
 # ---------- Build Stage ----------
@@ -10,8 +10,8 @@
   # Copy dependency files
   COPY package*.json .npmrc ./
   
-  # Install dependencies safely
-  RUN npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+  # Install all dependencies (including devDeps for Tailwind + DaisyUI)
+  RUN npm ci --ignore-scripts || npm install --ignore-scripts
   
   # Copy app source
   COPY . .
@@ -24,13 +24,13 @@
   WORKDIR /app
   ENV NODE_ENV=production
   
-  # Copy built app
+  # Copy only necessary runtime files
   COPY --from=builder /app/.next ./.next
   COPY --from=builder /app/public ./public
   COPY --from=builder /app/package*.json ./
   COPY --from=builder /app/next.config.js ./
   
-  # Install only runtime deps
+  # Install only production dependencies
   RUN npm install --omit=dev --ignore-scripts
   
   EXPOSE 3000

@@ -1,5 +1,0 @@
-# .npmrc
-# Fix cross-platform Next.js SWC builds
-force=true
-engine-strict=false
-update-notifier=false
