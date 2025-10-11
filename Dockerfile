@@ -1,35 +1,37 @@
-# ---- Base ----
-FROM node:18-bullseye AS base
-WORKDIR /app
+# =====================================
+# ChurchFinance - Universal Next.js Dockerfile
+# Works on macOS (local) + Linux (production)
+# =====================================
 
-# ---- Deps ----
-FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev
-
-# ---- Builder ----
-FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN --mount=type=cache,target=/app/.next/cache \
-    npx prisma generate && npm run build
-
-# ---- Runner ----
-FROM node:18-bullseye AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/prisma ./prisma
-
-EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
-
-CMD ["npm", "run", "start"]
+# ---------- Build Stage ----------
+  FROM node:20-bullseye AS builder
+  WORKDIR /app
+  
+  # Copy dependency files
+  COPY package*.json .npmrc ./
+  
+  # Install dependencies safely
+  RUN npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+  
+  # Copy app source
+  COPY . .
+  
+  # Build production output
+  RUN npm run build
+  
+  # ---------- Runtime Stage ----------
+  FROM node:20-slim AS runner
+  WORKDIR /app
+  ENV NODE_ENV=production
+  
+  # Copy built app
+  COPY --from=builder /app/.next ./.next
+  COPY --from=builder /app/public ./public
+  COPY --from=builder /app/package*.json ./
+  COPY --from=builder /app/next.config.js ./
+  
+  # Install only runtime deps
+  RUN npm install --omit=dev --ignore-scripts
+  
+  EXPOSE 3000
+  CMD ["npm", "run", "start"]

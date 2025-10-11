@@ -1,5 +1,5 @@
 # .npmrc
-# Allow npm to automatically switch platform binaries
-# This prevents macOS-only SWC from breaking Linux builds
+# Fix cross-platform Next.js SWC builds
 force=true
+engine-strict=false
 update-notifier=false
