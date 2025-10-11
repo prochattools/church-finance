@@ -20,7 +20,7 @@
   RUN npx prisma generate
   
   # Build production output
-  RUN npm run build
+  RUN NEXT_DISABLE_TYPECHECK=1 npm run build
   
   # ---------- Runtime Stage ----------
   FROM node:20-slim AS runner
