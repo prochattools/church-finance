@@ -7,99 +7,239 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                  String               @id @default(cuid())
-  email               String               @unique
-  name                String?
-  password            String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-
-  accounts            Account[]
-  transactions        Transaction[]
-  categorizationRules CategorizationRule[]  // ✅ fixed
+model Subscription {
+  id                 String             @id @default(uuid())
+  user_email         String             @unique
+  sub_status         SubscriptionStatus @default(inactive)
+  sub_type           String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  last_stripe_cs_id  String             @unique
+  stripe_customer_id String             @unique
+  sub_stripe_id      String?
+  user_clerk_id      String             @unique
 }
 
-model Account {
-  id                String         @id @default(cuid())
-  name              String
-  type              String?
-  currency          String?        @default("EUR")
-  balance           Decimal?       @db.Decimal(12, 2)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+model Project {
+  id            String  @id @default(uuid())
+  connection_id String
+  webhook_id    String
+  scenario_id   String
+  assistant_id  String?
+  user_clerk_id String
+  type          String
+  status        String  @default("default")
 
-  userId            String
-  user              User           @relation(fields: [userId], references: [id])
+  webhookLink String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
 
-  transactions      Transaction[]
-  openingBalances   OpeningBalance[]
-  ledgerLocks       LedgerLock[]
+model Audiences {
+  id        String @id @default(uuid())
+  resend_id String @unique
+  name      String
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  ledgers      Ledger[]
+  accounts     Account[]
+  importBatches ImportBatch[]
 }
 
 model Category {
-  id                  String                @id @default(cuid())
-  name                String
-  color               String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-
-  transactions        Transaction[]
-  categorizationRules CategorizationRule[]   // ✅ fixed
+  id            String         @id @default(uuid())
+  name          String         @unique
+  color         String?
+  createdAt     DateTime       @default(now())
+  transactions  Transaction[]
 }
 
-model Transaction {
-  id                String          @id @default(cuid())
-  date              DateTime
-  description       String
-  amount            Decimal         @db.Decimal(12, 2)
-  type              String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+model Ledger {
+  id           String         @id @default(uuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  month        Int
+  year         Int
+  transactions Transaction[]
+  createdAt    DateTime       @default(now())
+  lockedAt     DateTime?
+  lockedBy     String?
+  lockNote     String?
+  lock         LedgerLock?
+  rules        CategorizationRule[]
 
-  accountId         String
-  account           Account         @relation(fields: [accountId], references: [id])
+  @@unique([userId, month, year])
+}
 
-  categoryId        String?
-  category          Category?       @relation(fields: [categoryId], references: [id])
+model Account {
+  id         String     @id @default(uuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  name       String
+  identifier String
+  currency   String     @default("EUR")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
-  userId            String
-  user              User            @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+  openingBalances OpeningBalance[]
+
+  @@unique([userId, identifier])
 }
 
 model OpeningBalance {
-  id                String     @id @default(cuid())
-  accountId         String
-  date              DateTime
-  amount            Decimal    @db.Decimal(12, 2)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id            String   @id @default(uuid())
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id])
+  effectiveDate DateTime
+  amountMinor   BigInt
+  currency      String   @default("EUR")
+  note          String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  lockedAt      DateTime?
+  lockedBy      String?
 
-  account           Account    @relation(fields: [accountId], references: [id])
+  @@unique([accountId, effectiveDate])
+  @@index([accountId, effectiveDate])
 }
 
 model LedgerLock {
-  id                String     @id @default(cuid())
-  accountId         String
-  periodStart       DateTime
-  periodEnd         DateTime
-  lockedBy          String
-  createdAt         DateTime   @default(now())
+  id        String   @id @default(uuid())
+  ledgerId  String   @unique
+  ledger    Ledger   @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  lockedAt  DateTime
+  lockedBy  String?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
-  account           Account    @relation(fields: [accountId], references: [id])
+model ImportBatch {
+  id            String             @id @default(uuid())
+  userId        String
+  user          User               @relation(fields: [userId], references: [id])
+  filename      String
+  fileType      String?
+  status        ImportBatchStatus  @default(pending)
+  totalRows     Int                @default(0)
+  importedRows  Int                @default(0)
+  duplicateRows Int                @default(0)
+  errorRows     Int                @default(0)
+  autoCategorizedRows Int          @default(0)
+  startedAt     DateTime           @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  transactions Transaction[]
+  rules        CategorizationRule[]
+
+  @@index([userId, startedAt])
+}
+
+model Transaction {
+  id            String     @id @default(uuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id])
+  accountId     String?
+  account       Account?   @relation(fields: [accountId], references: [id])
+  ledgerId      String?
+  ledger        Ledger?    @relation(fields: [ledgerId], references: [id])
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
+  date          DateTime
+  description   String
+  normalizedKey String     @default("")
+  amountMinor   BigInt
+  currency      String     @default("EUR")
+  direction     TransactionDirection @default(credit)
+  source        String
+  counterparty  String?
+  reference     String?
+  hash          String
+  sourceFile    String?
+  rawRow        Json?
+  categoryId    String?
+  category      Category?  @relation(fields: [categoryId], references: [id])
+  classificationSource TransactionClassificationSource @default(none)
+  classificationRuleId String?
+  classificationRule   CategorizationRule? @relation(fields: [classificationRuleId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, normalizedKey, amountMinor])
+  @@index([userId, accountId, date])
+  @@unique([hash])
 }
 
 model CategorizationRule {
-  id            String     @id @default(cuid())
+  id            String           @id @default(uuid())
   userId        String
-  user          User       @relation(fields: [userId], references: [id])
-
+  user          User             @relation(fields: [userId], references: [id])
+  importBatchId String?
+  importBatch   ImportBatch?     @relation(fields: [importBatchId], references: [id])
+  ledgerId      String?
+  ledger        Ledger?          @relation(fields: [ledgerId], references: [id])
   categoryId    String
-  category      Category   @relation(fields: [categoryId], references: [id])
-
+  category      Category         @relation(fields: [categoryId], references: [id])
   label         String
   pattern       String
-  priority      Int        @default(0)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  matchType     RuleMatchType    @default(regex)
+  matchField    RuleMatchField   @default(description)
+  priority      Int              @default(100)
+  isActive      Boolean          @default(true)
+  createdBy     String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  lastMatchedAt DateTime?
+
+  transactions  Transaction[]
+
+  @@index([userId, isActive, priority])
+  @@index([ledgerId])
+}
+
+enum SubscriptionStatus {
+  active
+  inactive
+}
+
+enum TransactionDirection {
+  credit
+  debit
+}
+
+enum ImportBatchStatus {
+  pending
+  completed
+  failed
+}
+
+enum RuleMatchType {
+  regex
+  contains
+  startsWith
+  endsWith
+}
+
+enum RuleMatchField {
+  description
+  counterparty
+  reference
+  source
+}
+
+enum TransactionClassificationSource {
+  none
+  rule
+  history
+  import
+  manual
 }
