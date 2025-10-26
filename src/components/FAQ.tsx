@@ -38,7 +38,7 @@ const StaticData = {
     },
     {
       id: 4,
-      question: "Why MicroSaaSFast is better than other boilerplates?",
+      question: "Why OpenFund is better than other boilerplates?",
       answer:
         "You are buying not components, you purchasing an experience to ship your micro SaaS fast and make fast money with it.",
     },

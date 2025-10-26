@@ -221,7 +221,7 @@ const handlePurchase = async (priceId: string) => {
 
 // Update the button to call the function
 ;<button onClick={() => handlePurchase('price_1234567890')} disabled={loading}>
-	Get MicroSaaSFast
+	Get OpenFund
 </button>
 ```
 

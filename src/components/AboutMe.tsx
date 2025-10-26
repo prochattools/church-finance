@@ -109,9 +109,7 @@ const AboutMe = () => {
                   10+ years of IT experience
                 </strong>{" "}
                 and created the{" "}
-                <strong className="text-black1 dark:text-white">
-                  MicroSaaSFast
-                </strong>{" "}
+                <strong className="text-black1 dark:text-white">OpenFund</strong>{" "}
                 boilerplate for my own needs, so I can quickly launch my ideas
                 and test, test, test. Why? Because by doing this, I can:
               </p>

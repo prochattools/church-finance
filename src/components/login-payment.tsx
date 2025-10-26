@@ -262,8 +262,8 @@ const LoginPayment = ({ user }: any) => {
                       href={
                         index === 0 && user?.stripeEmail
                           ? user?.amountPaid === "247"
-                            ? "https://github.com/MicroSaaSFast/boilerplate-advanced"
-                            : "https://github.com/MicroSaaSFast/boilerplate-basic"
+                            ? "https://github.com/OpenFund/boilerplate-advanced"
+                            : "https://github.com/OpenFund/boilerplate-basic"
                           : item?.link
                       }
                       target="_blank"

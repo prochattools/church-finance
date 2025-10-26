@@ -193,7 +193,7 @@ const PricingCard = ({ item }: { item: (typeof pricing_card)[number] }) => {
           rel="noopener noreferrer"
           className="block"
         >
-          <IconButton text="Get MicroSaaSFast" icon={<RightArrow />} />
+          <IconButton text="Get OpenFund" icon={<RightArrow />} />
         </a>
         <p className="text-center text-sm font-medium text-white/65">
           Pay once. Forever access. <br />

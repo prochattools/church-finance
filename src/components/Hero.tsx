@@ -100,7 +100,7 @@ const Hero = () => {
 					</p>
 					<div className='flex flex-col items-start gap-4 sm:flex-row sm:items-center'>
 						<div className='w-full sm:w-auto'>
-							<IconButton text='Get MicroSaaSFast' icon={<RightArrow />} />
+							<IconButton text='Get OpenFund' icon={<RightArrow />} />
 						</div>
 						<button className='inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white/80 transition-all duration-200 ease-out hover:border-white/40 hover:bg-white/10'>
 							<span>View live demo</span>

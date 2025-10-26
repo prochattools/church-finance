@@ -20,10 +20,6 @@ const nav_links1 = [
     title: "Documentation",
     link: "https://docs.microsaasfast.me/",
   },
-  {
-    title: "Affiliates - Earn up to $123 per sale",
-    link: "#",
-  },
 ];
 
 const nav_links2 = [
@@ -71,7 +67,7 @@ const Footer = () => {
               Launch your SaaS in days, not weeks. We blend rock-solid architecture with the luminous ProChat-inspired interface.
             </p>
             <p className="text-xs font-medium uppercase tracking-[0.35em] text-white/60">
-              © 2025 Church Finance. All rights reserved.
+              © 2025 OpenFund. All rights reserved.
             </p>
           </div>
           <div>
@@ -107,7 +103,7 @@ const Footer = () => {
           </div>
         </div>
         <div className="mt-12 border-t border-white/10 pt-8 text-center text-xs font-medium uppercase tracking-[0.35em] text-white/50">
-          Crafted by DennisBabych & DesignFast2
+          Crafted by ProChat™ - Apps made simple.
         </div>
       </div>
     </footer>

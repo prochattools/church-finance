@@ -112,7 +112,7 @@ const MobileNav = () => {
 					}}
 					className='mb-8 mx-auto w-fit block'
 				>
-					<IconButton text='Get MicroSaaSFast' icon={<RightArrow />} />
+					<IconButton text='Get OpenFund' icon={<RightArrow />} />
 				</div>
 			</SheetContent>
 		</Sheet>
