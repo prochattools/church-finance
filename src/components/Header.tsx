@@ -36,11 +36,13 @@ const nav_links = [
 		icon: <Pricing />,
 		title: 'Ledger',
 		link: '/ledger',
+		requiresAuth: true,
 	},
 	{
 		icon: <Demo />,
 		title: 'Review',
 		link: '/review',
+		requiresAuth: true,
 	},
 	{
 		icon: <Blog width={18} height={18} />,
