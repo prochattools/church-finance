@@ -20,6 +20,8 @@ const generateValidationSchema = (fields: string[]) => {
 	return Yup.object().shape(schemaFields)
 }
 
+type ScenarioFormValues = Record<string, string>
+
 const Scenarios = () => {
 	const [myProjects, setMyProjects] = useState<Project[]>([])
 	const [isLoading, setIsLoading] = useState(false)
@@ -98,12 +100,12 @@ const Scenarios = () => {
 			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-11/12 max-w-7xl'>
 				{availableScenarios?.map(scenario => {
 					// Generate initial values for form fields
-					const initialValues = scenario.fields.reduce(
-						(acc: { [key: string]: string }, field) => {
+					const initialValues = scenario.fields.reduce<ScenarioFormValues>(
+						(acc, field) => {
 							acc[field] = ''
 							return acc
 						},
-						{ scenarioId: scenario.id } as { [key: number]: string }
+						{ scenarioId: String(scenario.id) }
 					)
 
 					return (
@@ -126,32 +128,33 @@ const Scenarios = () => {
 								{scenario.description}
 							</p>
 
-							<Formik
+							<Formik<ScenarioFormValues>
 								initialValues={initialValues}
 								validationSchema={generateValidationSchema(scenario.fields)}
 								onSubmit={e => createCloneScenario(e, scenario.route)}
 							>
 								{({ errors, touched }) => (
 									<Form className='w-full space-y-2 mt-2'>
-										{scenario.fields.map(field => (
-											<div key={field}>
-												<Field
-													as={Input}
-													name={field}
-													placeholder={field
-														.replace(/([A-Z])/g, ' $1')
-														.replace(/^./, str => str.toUpperCase())}
-													className='w-full'
-												/>
-												{errors[field] &&
-													touched[field] &&
-													typeof errors[field] === 'string' && (
-														<div className='text-red-500 text-sm'>
-															{errors[field]}
-														</div>
+										{scenario.fields.map(field => {
+											const key = field as keyof ScenarioFormValues
+											const fieldError = errors[key]
+											const fieldTouched = touched[key]
+											return (
+												<div key={field}>
+													<Field
+														as={Input}
+														name={field}
+														placeholder={field
+															.replace(/([A-Z])/g, ' $1')
+															.replace(/^./, str => str.toUpperCase())}
+														className='w-full'
+													/>
+													{typeof fieldError === 'string' && fieldTouched && (
+														<div className='text-red-500 text-sm'>{fieldError}</div>
 													)}
-											</div>
-										))}
+												</div>
+											)
+										})}
 
 										<Button
 											type='submit'

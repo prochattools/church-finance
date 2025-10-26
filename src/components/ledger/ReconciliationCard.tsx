@@ -405,7 +405,7 @@ export function ReconciliationCard({ className, onStatusChange }: { className?: 
           ) : null}
           {data && data.missingDates.length > 0 ? (
             <ul className="grid grid-cols-2 gap-1 text-[11px] text-white/70">
-              {data.missingDates.slice(0, 12).map((iso) => (
+              {data.missingDates.slice(0, 12).map((iso: string) => (
                 <li key={iso}>{new Date(iso).toLocaleDateString()}</li>
               ))}
             </ul>
@@ -419,7 +419,7 @@ export function ReconciliationCard({ className, onStatusChange }: { className?: 
           ) : null}
           {data && data.duplicateIndicators.length > 0 ? (
             <ul className="space-y-1 text-[11px] text-white/70">
-              {data.duplicateIndicators.slice(0, 6).map((item) => (
+              {data.duplicateIndicators.slice(0, 6).map((item: { date: string; description: string; amountMinor: string; occurrences: number }) => (
                 <li key={`${item.date}-${item.amountMinor}-${item.description}`}>
                   <span className="font-semibold">{new Date(item.date).toLocaleDateString()}:</span> {item.description} · {formatCurrency(item.amountMinor, currency)} · {item.occurrences}x
                 </li>

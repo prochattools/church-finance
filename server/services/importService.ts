@@ -332,7 +332,7 @@ export const processImportBufferWithClient = async (
             reference: row.reference,
             hash: row.hash,
             sourceFile: filename,
-            rawRow: row.raw,
+            rawRow: row.raw as Prisma.InputJsonValue,
             categoryId: categorization.categoryId,
             classificationSource: categorization.classificationSource,
             classificationRuleId: categorization.ruleId,
@@ -380,7 +380,7 @@ export const processImportBufferWithClient = async (
         errorRows: parsed.errors.length,
         completedAt: new Date(),
       },
-    }).catch(() => undefined);
+    }).catch((): undefined => undefined);
 
     return {
       filename,

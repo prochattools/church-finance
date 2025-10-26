@@ -210,7 +210,7 @@ export const updateCategorizationRule = async (id: string, payload: Partial<Rule
   return response.json();
 };
 
-export const deleteCategorizationRule = async (id: string) => {
+export const deleteCategorizationRule = async (id: string): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/api/rules/${id}`, withUserHeader({
     method: 'DELETE',
   }));
@@ -220,5 +220,5 @@ export const deleteCategorizationRule = async (id: string) => {
     throw new Error(error.error ?? 'Failed to delete rule');
   }
 
-  return null;
+  return;
 };

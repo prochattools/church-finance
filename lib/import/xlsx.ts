@@ -45,10 +45,12 @@ export const parseInitialWorkbook = (
 
     const reference = extractReference(String(row['Notifications'] ?? '') || null);
 
+    const accountValue = row['Account'];
+
     const result = buildNormalizedTransaction({
       rowNumber,
-      accountIdentifier: row['Account'],
-      accountName: (typeof row['Account'] === 'string' ? row['Account'] : null),
+      accountIdentifier: typeof accountValue === 'string' ? accountValue : null,
+      accountName: typeof accountValue === 'string' ? accountValue : null,
       currency: 'EUR',
       date: row['Date'],
       description: row['Name / Description'],
