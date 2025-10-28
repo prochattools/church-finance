@@ -20,34 +20,39 @@ import { ScrollToSection } from '@/utils/scroll-to-section'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 
 const nav_links = [
 	{
 		icon: <Demo />,
-		title: 'Demo',
-		link: '/',
+		title: 'Why',
+		link: '/#why',
+		sectionId: 'why',
+	},
+	{
+		icon: <Pricing />,
+		title: 'What',
+		link: '/#what',
+		sectionId: 'what',
 	},
 	{
 		icon: <Pricing />,
 		title: 'Pricing',
-		link: '/',
-	},
-	{
-		icon: <Pricing />,
-		title: 'Ledger',
-		link: '/ledger',
-		requiresAuth: true,
+		link: '/#pricing',
+		sectionId: 'pricing',
 	},
 	{
 		icon: <Demo />,
-		title: 'Review',
-		link: '/review',
-		requiresAuth: true,
+		title: 'FAQ',
+		link: '/#faq',
+		sectionId: 'faq',
 	},
 	{
 		icon: <Blog width={18} height={18} />,
-		title: 'Blog',
-		link: '/blog',
+		title: 'App',
+		link: '/ledger',
+		requiresAuth: true,
 	},
 ]
 
@@ -84,7 +89,11 @@ const ThemeSwitch = () => {
 	)
 }
 
-const MobileNav = () => {
+const MobileNav = ({
+	onLogoClick,
+}: {
+	onLogoClick: (event: ReactMouseEvent<HTMLAnchorElement>) => void
+}) => {
 	return (
 		<Sheet>
 			<SheetTrigger>
@@ -98,7 +107,7 @@ const MobileNav = () => {
 						Menu
 					</SheetTitle>
 				</SheetHeader>
-				<Link href='/' className='mx-auto mt-8 flex w-fit items-center gap-2'>
+				<Link href='/' onClick={onLogoClick} className='mx-auto mt-8 flex w-fit items-center gap-2'>
 					<Logo />
 				</Link>
 				<div className='mx-auto my-8 w-fit'>
@@ -110,7 +119,7 @@ const MobileNav = () => {
 				</div>
 				<div
 					onClick={() => {
-						ScrollToSection('1')
+						ScrollToSection('pricing')
 					}}
 					className='mb-8 mx-auto w-fit block'
 				>
@@ -122,11 +131,23 @@ const MobileNav = () => {
 }
 
 const Header = () => {
+	const router = useRouter()
+	const pathname = usePathname()
+
+	const handleLogoClick = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+		event.preventDefault()
+		if (pathname === '/') {
+			window.scrollTo({ top: 0, behavior: 'smooth' })
+		} else {
+			router.push('/')
+		}
+	}
+
 	return (
 		<header className='fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4 backdrop-blur-sm md:px-6 lg:px-8'>
 			<div className='relative flex w-full max-w-[1200px] items-center justify-between gap-4 rounded-full border border-white/30 bg-white/80 px-5 py-3 shadow-[0_18px_65px_-40px_rgba(49,112,255,0.85)] backdrop-blur-2xl transition-colors duration-300 ease-out dark:border-white/10 dark:bg-white/10'>
 				<div className='pointer-events-none absolute inset-0 -z-10 rounded-full opacity-[0.06] blur-3xl' />
-				<Link href='/'>
+				<Link href='/' onClick={handleLogoClick}>
 					<Logo />
 				</Link>
 				<div className='hidden lg:block'>
@@ -141,7 +162,7 @@ const Header = () => {
 
 				<div className='flex items-center gap-3 lg:hidden'>
 					<ThemeSwitch />
-					<MobileNav />
+					<MobileNav onLogoClick={handleLogoClick} />
 				</div>
 			</div>
 		</header>

@@ -83,20 +83,17 @@ const Hero = () => {
 				<div className='relative z-10 w-full max-w-xl space-y-8'>
 					<div className='inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white/70 backdrop-blur-xl'>
 						<span className='inline-flex h-2 w-2 rounded-full bg-[#62f9ff]' />
-						Real-time finance copilots
+						Real-time Financial Insights
 					</div>
 					<h1 className='text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-[3.5rem]'>
-						Design an AI-first{' '}
+						See where the money goes.{' '}
 						<span className='bg-gradient-to-r from-[#7A7AFF] via-[#61D0FF] to-[#7A7AFF] bg-clip-text text-transparent'>
-							church finance
-						</span>{' '}
-						experience your community loves
+							Build trust. Save hours.
+						</span>
 					</h1>
 					<p className='text-base text-white/70 sm:text-lg'>
-						Copying the sleek ProChat aesthetic, this new interface pairs
-						glowing gradients with glassmorphism so your donors and staff feel
-						at home while you automate reconciliation, reporting, and follow-up
-						workflows.
+						OpenFund turns your financial data into clear, visual insights — so your
+						community knows exactly how their donations make an impact.
 					</p>
 					<div className='flex flex-col items-start gap-4 sm:flex-row sm:items-center'>
 						<div className='w-full sm:w-auto'>
@@ -107,9 +104,9 @@ const Hero = () => {
 							<RightArrow />
 						</button>
 					</div>
-					<p className='text-xs font-semibold uppercase tracking-[0.4em] text-white/60'>
-						For finance leaders • treasurers • operations teams
-					</p>
+						<p className='text-xs font-semibold uppercase tracking-[0.4em] text-white/60'>
+							Visualize your organization’s impact in minutes
+						</p>
 					<TestimonialsAvatars priority />
 				</div>
 				<div className='relative z-10 w-full max-w-[520px]'>

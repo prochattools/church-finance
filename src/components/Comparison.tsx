@@ -7,35 +7,35 @@ import VsColImg from "@/assets/images/vs-col.svg";
 const cards = [
   {
     isGreen: false,
-    title: "Software development",
+    title: "Financial Insights",
     items: [
       {
         time: "+ 15 hrs",
-        text: "to code Auth & User Profile",
+        text: "manual bookkeeping",
       },
       {
         time: "+ 3 hrs",
-        text: "to setup & design Email",
+        text: "Excel chaos",
       },
       {
         time: "+ 8 hrs",
-        text: "to setup Stripe, Payments, Webhooks",
+        text: "Donors constantly asking for transparency updates",
       },
       {
         time: "+ 4 hrs",
-        text: "adding SEO",
+        text: "No simple way to show where donations go",
       },
       {
         time: "+ 12 hrs",
-        text: "to setup SEO Blog CMS",
+        text: "Outdated financial overviews the moment they're made",
       },
       {
         time: "+ 2 hrs",
-        text: "to build a Dashboard",
+        text: "Team members working from different versions of the truth",
       },
       {
         time: "+ 2 hrs",
-        text: "DB setup",
+        text: "No clear picture of how much impact each campaign actually has",
       },
     ],
     totalTime: "= 55 hours of PROBLEMS",
@@ -44,14 +44,13 @@ const cards = [
     isGreen: true,
     title: <Logo />,
     items: [
-      { text: "Auth & User Profile" },
-      { text: "Email setup & design" },
-      { text: "Landing Page & UI" },
-      { text: "Stripe, Payments, Webhooks" },
-      { text: "SEO" },
-      { text: "SEO Blog CMS" },
-      { text: "Dashboard" },
-      { text: "DB setup" },
+      { text: "Automatically imports transactions from your bank" },
+      { text: "Categorizes every expense and donation" },
+      { text: "Gives clear dashboards that anyone can understand" },
+      { text: "Builds instant trust with your community" },
+      { text: "Keeps all accounts, funds, and projects synchronized in one place" },
+      { text: "Turns complex ledgers into easy, visual stories anyone can share" },
+      { text: "Saves hours every month - so you can focus on your mission, not spreadsheets" },
     ],
     totalTime: "= 17 min Setup",
   },
@@ -103,13 +102,10 @@ const ComparisonCard = ({ item }: any) => {
 
 const Comparison = () => {
   return (
-    <div className="flex justify-center items-center w-full bg-white dark:bg-[#010814] pt-12 pb-24">
+    <div id="why" className="flex justify-center items-center w-full bg-white dark:bg-[#010814] pt-12 pb-24">
       <div className="max-w-[1440px] w-full px-4 sm:px-12">
-        <div className="max-w-[440px] mx-auto mb-12">
-          <Heading
-            title="Ship SaaS Fast"
-            desc="No need to write the SaaS wrapper code anymore, just add your idea, script, no-code tool inside and go live now"
-          />
+        <div className="max-w-[640px] mx-auto mb-12">
+          <Heading title="Why OpenFund Exists" desc="Nonprofits, fundraisers and churches handle funds with integrity - but explaining where it all goes is often a nightmare of spreadsheets, reports, and confusion." />
         </div>
         <div className="flex gap-8 items-center justify-center flex-col lg:flex-row">
           <ComparisonCard item={cards[0]} />

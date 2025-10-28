@@ -1,222 +1,128 @@
 import { Heading, IconButton } from "@/components";
-import { NotInclude, RightArrow, Tick } from "@/icons";
+import { RightArrow, Tick } from "@/icons";
 
 const pricing_card = [
   {
     id: 1,
     title: "Starter",
-    price_before: "$307",
-    price_now: "$207",
+    subtitle: "Free forever",
+    price_label: "Free",
+    price_suffix: "/ forever",
+    description: "For small teams or personal fund tracking.",
     is_best_deal: false,
-    btn_link: "https://buy.stripe.com/5kA5nF3pxdgh2bK5kn",
+    btn_link: "#",
+    cta_text: "Start for Free",
     features: [
-      {
-        id: 1,
-        text: "NextJS boilerplate",
-      },
-      {
-        id: 2,
-        text: "Auth & User Profile",
-      },
-      {
-        id: 3,
-        text: "SEO",
-      },
-      {
-        id: 4,
-        text: "SEO Blog CMS / WP",
-      },
-      {
-        id: 5,
-        text: "Resend emails",
-      },
-      {
-        id: 6,
-        text: "Stripe",
-      },
-      {
-        id: 7,
-        text: "PostgreSQL / Prisma",
-      },
-      {
-        id: 8,
-        text: "Components & animations",
-      },
-      {
-        id: 9,
-        text: "User Dashboard",
-      },
-      {
-        id: 10,
-        text: "Docker container",
-      },
-      {
-        id: 11,
-        text: "Waiting list",
-        not_included: true,
-      },
-      {
-        id: 12,
-        text: "Invoice generation tool",
-        not_included: true,
-      },
-      {
-        id: 13,
-        text: "Discord founders community",
-        not_included: true,
-      },
+      { id: 1, text: "1 account" },
+      { id: 2, text: "Up to 500 transactions / month" },
+      { id: 3, text: "Manual and automatic categorization" },
+      { id: 4, text: "Insight dashboard" },
+      { id: 5, text: "Export reports (CSV, PDF)" },
     ],
   },
   {
     id: 2,
-    title: "Full package",
-    price_before: "$347",
-    price_now: "$247",
+    title: "Community Plan",
+    subtitle: "Best for growing transparency",
+    price_label: "EUR 19",
+    price_suffix: "/ month",
+    description: "For churches, fundraisers, and nonprofits that need full transparency.",
     is_best_deal: true,
-    btn_link: "https://buy.stripe.com/3csaHZ9NV2BD8A8004",
+    btn_link: "#",
+    cta_text: "Upgrade to Community",
     features: [
-      {
-        id: 1,
-        text: "NextJS boilerplate",
-      },
-      {
-        id: 2,
-        text: "Auth & User Profile",
-      },
-      {
-        id: 3,
-        text: "SEO",
-      },
-      {
-        id: 4,
-        text: "SEO Blog CMS / WP",
-      },
-      {
-        id: 5,
-        text: "Resend emails",
-      },
-      {
-        id: 6,
-        text: "Stripe",
-      },
-      {
-        id: 7,
-        text: "PostgreSQL / Prisma",
-      },
-      {
-        id: 8,
-        text: "Components & animations",
-      },
-      {
-        id: 9,
-        text: "User Dashboard",
-      },
-      {
-        id: 10,
-        text: "Docker container",
-      },
-      {
-        id: 11,
-        text: "Waiting list",
-      },
-      {
-        id: 12,
-        text: "Invoice generation tool",
-      },
-      {
-        id: 13,
-        text: "Discord founders community",
-      },
-      {
-        id: 14,
-        text: "Lifetimes updates",
-      },
+      { id: 1, text: "Everything in Starter, plus:", is_heading: true },
+      { id: 2, text: "Unlimited accounts and transactions" },
+      { id: 3, text: "Public transparency pages for campaigns" },
+      { id: 4, text: "Multi-user access" },
+      { id: 5, text: "Priority support and setup guidance" },
+      { id: 6, text: "Early access to AI categorization" },
     ],
+    footnote: "Hint: 19 euros a month to save 10+ hours of admin and gain full donor confidence.",
   },
 ];
 
 const PricingCard = ({ item }: { item: (typeof pricing_card)[number] }) => {
-  const cardClasses = item?.is_best_deal
-    ? "border-white/25 bg-[linear-gradient(160deg,rgba(122,122,255,0.34),rgba(23,33,78,0.85))] shadow-[0_40px_140px_-80px_rgba(49,112,255,0.85)]"
-    : "border-white/12 bg-white/8 shadow-[0_35px_120px_-90px_rgba(49,112,255,0.55)]";
+	const cardClasses = item?.is_best_deal
+		? 'border-white/25 bg-[linear-gradient(160deg,rgba(122,122,255,0.34),rgba(23,33,78,0.9))] shadow-[0_40px_140px_-80px_rgba(49,112,255,0.85)]'
+		: 'border-white/12 bg-white/8 shadow-[0_35px_120px_-90px_rgba(49,112,255,0.55)]'
 
-  return (
-    <div className={`relative flex h-full flex-col gap-6 rounded-[32px] p-8 backdrop-blur-2xl transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_42px_150px_-90px_rgba(49,112,255,0.85)] ${cardClasses}`}>
-      {item?.is_best_deal && (
-        <div className="absolute -top-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/40 bg-white/15 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.35em] text-white/85 shadow-[0_10px_30px_-20px_rgba(99,97,255,0.75)] backdrop-blur-xl">
-          Best deal
-        </div>
-      )}
-      <div className="flex flex-col gap-3">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/60">
-          {item?.title}
-        </p>
-        <div className="flex items-center gap-3">
-          {item?.price_before && (
-            <span className="text-lg font-medium text-white/40 line-through">
-              {item?.price_before}
-            </span>
-          )}
-          <p className="text-4xl font-semibold text-white sm:text-[2.75rem]">
-            {item?.price_now}
-            <span className="ml-1 text-sm font-medium text-white/60">/ lifetime</span>
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-col gap-3">
-        {item?.features?.map((cardItem) => (
-          <div
-            key={cardItem.id}
-            className="flex items-start gap-3 text-sm text-white/80 sm:text-base"
-          >
-            <span className="mt-0.5 flex h-5 w-5 items-center justify-center">
-              {cardItem?.not_included ? (
-                <NotInclude />
-              ) : (
-                <Tick width={18} height={18} />
-              )}
-            </span>
-            <span
-              className={`flex-1 ${
-                cardItem?.not_included ? "text-white/35 line-through" : ""
-              }`}
-            >
-              {cardItem?.text}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-auto space-y-3 pt-2">
-        <a
-          href={item?.btn_link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block"
-        >
-          <IconButton text="Get OpenFund" icon={<RightArrow />} />
-        </a>
-        <p className="text-center text-sm font-medium text-white/65">
-          Pay once. Forever access. <br />
-          Ship unlimited projects!
-        </p>
-      </div>
-    </div>
-  );
-};
+	return (
+		<div
+			className={`relative flex h-full flex-col gap-6 rounded-[32px] p-8 backdrop-blur-2xl transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_42px_150px_-90px_rgba(49,112,255,0.85)] ${cardClasses}`}
+		>
+			{item?.is_best_deal && (
+				<div className='absolute -top-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/40 bg-white/15 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.35em] text-white/85 shadow-[0_10px_30px_-20px_rgba(99,97,255,0.75)] backdrop-blur-xl'>
+					Most popular
+				</div>
+			)}
+			<div className='flex flex-col gap-3'>
+				<div>
+					<p className='text-sm font-semibold uppercase tracking-[0.3em] text-white/60'>
+						{item?.title}
+					</p>
+					{item?.subtitle && (
+						<p className='mt-1 text-xs font-semibold uppercase tracking-[0.25em] text-white/45'>
+							{item.subtitle}
+						</p>
+					)}
+				</div>
+				<div className='flex items-end gap-2'>
+					<p className='text-4xl font-semibold text-white sm:text-[2.75rem]'>
+						{item?.price_label}
+					</p>
+					{item?.price_suffix && (
+						<span className='pb-1 text-base font-medium text-white/65'>
+							{item?.price_suffix}
+						</span>
+					)}
+				</div>
+				<p className='text-sm font-medium text-white/70 sm:text-base'>{item?.description}</p>
+			</div>
+			<div className='flex flex-col gap-3'>
+				{item?.features?.map((cardItem) =>
+					cardItem?.is_heading ? (
+						<p key={cardItem.id} className='pt-1 text-sm font-semibold text-white/75 sm:text-base'>
+							{cardItem.text}
+						</p>
+					) : (
+						<div
+							key={cardItem.id}
+							className='flex items-start gap-3 text-sm text-white/80 sm:text-base'
+						>
+							<span className='mt-0.5 flex h-5 w-5 items-center justify-center'>
+								<Tick width={18} height={18} />
+							</span>
+							<span className='flex-1'>{cardItem?.text}</span>
+						</div>
+					)
+				)}
+			</div>
+			<div className='mt-auto space-y-3 pt-2'>
+				<a href={item?.btn_link} className='block'>
+					<IconButton text={item?.cta_text} icon={<RightArrow />} />
+				</a>
+				{item?.footnote && (
+					<p className='text-center text-sm font-medium text-white/65'>{item.footnote}</p>
+				)}
+			</div>
+		</div>
+	)
+}
 
 const Pricing = () => {
   return (
-    <section className="relative isolate overflow-hidden px-4 py-24 sm:px-8 lg:px-12">
+    <section id="pricing" className="relative isolate overflow-hidden px-4 py-24 sm:px-8 lg:px-12">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[20%] top-[10%] h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,_rgba(122,122,255,0.25),_rgba(6,9,24,0))] blur-3xl" />
         <div className="absolute right-[18%] top-[60%] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,_rgba(36,196,255,0.2),_rgba(6,9,24,0))] blur-3xl" />
       </div>
       <div className="relative z-10 mx-auto w-full max-w-[1200px]">
-        <div id="1" className="mx-auto max-w-[620px] text-center">
+        <div className="mx-auto max-w-[620px] text-center">
           <Heading
-            title="Transparent pricing, ProChat polish."
-            desc="Lifetime licenses with the same glossy finish: deploy faster, own your stack, and iterate without worrying about mounting subscriptions."
-            maxWidth={480}
+            title="Pricing"
+            desc="OpenFund grows with your mission -- start free and scale transparency when you are ready."
+            maxWidth={520}
           />
         </div>
         <div className="mt-16 grid gap-8 md:grid-cols-2">

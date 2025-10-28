@@ -10,50 +10,39 @@ import {
 } from "@/components/ui/accordion";
 
 const StaticData = {
-  title: "A frequently asked questions",
-  below_title: "Have another question? Contact me on X or by email",
-  faqs: [
-    {
-      id: 1,
-      question: "What do I get?",
-      answer: `1. The NextJS starter with all the boilerplate code you need to run a micro SaaS startup fast: a payment system, a database, login, a blog, UI components, and much more.<br />
-      The repo is available in:<br />
-      - Typescript<br />
-      - /app router and /pages router.<br />
-      - docker container to launch on any server<br />
-      - CMS for Blog and Admin Dashboard<br />
-      2. The documentation helps you set up your app from scratch<br />
-      3. Access to our Discord with makers & founders who build fast, share their experience, create partnerships for cross promotions and doubling the sales`,
-    },
-    {
-      id: 2,
-      question: "What tech stack inside?",
-      answer:
-        "Next.JS, TypeScript, PostgreSQL, Docker, NextAuth, shadcn UI, ReSend, Stripe, Strapi and more",
-    },
-    {
-      id: 3,
-      question: "Is it a website template? ",
-      answer: `It's more than just a template. You can easily copy and paste website sections, including a pricing section, FAQ, and even a CMS blog. Additionally, you'll have access to a variety of UI components like buttons, modals, and animations. The NextJS starter also includes essential tools for running a micro SaaS business, such as payment processing, email integration, and SEO optimization.`,
-    },
-    {
-      id: 4,
-      question: "Why OpenFund is better than other boilerplates?",
-      answer:
-        "You are buying not components, you purchasing an experience to ship your micro SaaS fast and make fast money with it.",
-    },
-    {
-      id: 5,
-      question: "Are there any hidden costs?",
-      answer: "Your server $5/month, MagicLink $1 per 1000 users, Stripe fee",
-    },
-    {
-      id: 6,
-      question: "Can I get a refund?",
-      answer:
-        "After you purchase a product you will get an immediate access to all materials, so no. But rest assure that average time to launch micro SaaS startup is 7 days and start making money.",
-    },
-  ],
+	title: "Frequently Asked Questions",
+	below_title: "Have another question? Contact us.",
+	faqs: [
+		{
+			id: 1,
+			question: "Is OpenFund an accounting tool?",
+			answer:
+				"It is not bookkeeping software. OpenFund delivers financial insight and transparency alongside your existing accounting stack.",
+		},
+		{
+			id: 2,
+			question: "Can I use it for multiple projects or funds?",
+			answer: "Yes. You can create and track multiple accounts or fundraisers separately inside OpenFund.",
+		},
+		{
+			id: 3,
+			question: "Can I share my financial overview publicly?",
+			answer:
+				"Absolutely. Each account can publish a secure public page that shows donors exactly how funds are raised and spent.",
+		},
+		{
+			id: 4,
+			question: "Where does my data come from?",
+			answer:
+				"You upload your bank statements or ledger CSV files. OpenFund ingests and categorizes the transactions automatically.",
+		},
+		{
+			id: 5,
+			question: "Do I need accounting experience?",
+			answer:
+				"Not at all. OpenFund is built for everyday teams running real community work, not accountants.",
+		},
+	],
 };
 
 const Faq = ({ data, isHomePage }: any) => {
@@ -71,13 +60,13 @@ const Faq = ({ data, isHomePage }: any) => {
   }
 
   return (
-    <div className="flex justify-center items-center bg-white dark:bg-[#010814] my-16 w-full">
+    <div id="faq" className="flex justify-center items-center bg-white dark:bg-[#010814] my-16 w-full">
       <div className="max-w-[1440px] w-full px-4 sm:px-12">
         {isHomePage && (
           <div className="max-w-[624px] mx-auto mb-16">
             <Heading
-              title="A Frequently Asked Questions"
-              desc="Have another question? Contact me on X or by email"
+              title="Frequently Asked Questions"
+              desc="Have another question? Contact us."
             />
           </div>
         )}

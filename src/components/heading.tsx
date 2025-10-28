@@ -8,7 +8,7 @@ const Heading = ({ title, desc, maxWidth }: types) => {
   return (
     <div className="flex w-full flex-col items-center text-center">
       <h2
-        className="mb-4 text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-[2.75rem]"
+        className="mb-4 text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-[2.75rem] sm:whitespace-nowrap"
       >
         {title}
       </h2>
