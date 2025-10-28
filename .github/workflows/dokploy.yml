@@ -16,6 +16,7 @@ jobs:
 
       - name: Setup Supabase CLI
         # run: npm install -g supabase
+        # Dokploy has Supabase CLI already installed
 
       - name: Preview Deploy - Provision DB
         if: github.event_name == 'pull_request' && github.event.action != 'closed'
