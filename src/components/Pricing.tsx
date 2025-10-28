@@ -1,7 +1,27 @@
 import { Heading, IconButton } from "@/components";
 import { RightArrow, Tick } from "@/icons";
 
-const pricing_card = [
+type PricingFeature = {
+  id: number;
+  text: string;
+  is_heading?: boolean;
+};
+
+type PricingCardConfig = {
+  id: number;
+  title: string;
+  subtitle?: string;
+  price_label: string;
+  price_suffix?: string;
+  description: string;
+  is_best_deal: boolean;
+  btn_link: string;
+  cta_text: string;
+  features: PricingFeature[];
+  footnote?: string;
+};
+
+const pricing_card: PricingCardConfig[] = [
   {
     id: 1,
     title: "Starter",
