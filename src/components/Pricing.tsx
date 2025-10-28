@@ -100,12 +100,12 @@ const PricingCard = ({ item }: { item: (typeof pricing_card)[number] }) => {
 				<p className='text-sm font-medium text-white/70 sm:text-base'>{item?.description}</p>
 			</div>
 			<div className='flex flex-col gap-3'>
-				{item?.features?.map((cardItem) =>
-					cardItem?.is_heading ? (
-						<p key={cardItem.id} className='pt-1 text-sm font-semibold text-white/75 sm:text-base'>
-							{cardItem.text}
-						</p>
-					) : (
+        {item.features.map((cardItem: PricingFeature) =>
+          cardItem.is_heading ? (
+            <p key={cardItem.id} className='pt-1 text-sm font-semibold text-white/75 sm:text-base'>
+              {cardItem.text}
+            </p>
+          ) : (
 						<div
 							key={cardItem.id}
 							className='flex items-start gap-3 text-sm text-white/80 sm:text-base'
