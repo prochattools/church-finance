@@ -32,10 +32,10 @@ export function DashboardShell({ title, subtitle, actions, children }: Dashboard
   const view = searchParams?.get('view');
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#050B18] text-white">
-      <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-[#060F1F] md:flex md:flex-col">
+    <div className="flex min-h-[calc(100vh-4rem)] bg-slate-50 text-slate-900 dark:bg-[#050B18] dark:text-white">
+      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white/95 md:flex md:flex-col dark:border-white/5 dark:bg-[#060F1F]">
         <div className="flex items-center gap-2 px-6 py-6 text-lg font-semibold tracking-tight">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#2970FF] text-base font-bold">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#2970FF] text-base font-bold text-white">
             O
           </span>
           OpenFund Overview
@@ -57,8 +57,8 @@ export function DashboardShell({ title, subtitle, actions, children }: Dashboard
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group flex items-center gap-3 rounded-xl px-4 py-2 text-sm font-medium transition hover:bg-white/10 hover:text-white ${
-                  isActive ? 'bg-white/10 text-white shadow-inner' : 'text-white/70'
+                className={`group flex items-center gap-3 rounded-xl px-4 py-2 text-sm font-medium transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white ${
+                  isActive ? 'bg-slate-100 text-slate-900 shadow-inner dark:bg-white/10 dark:text-white' : 'text-slate-600 dark:text-white/70'
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -67,7 +67,7 @@ export function DashboardShell({ title, subtitle, actions, children }: Dashboard
             );
           })}
         </nav>
-        <div className="px-6 pb-6 text-xs text-white/40">
+        <div className="px-6 pb-6 text-xs text-slate-500 dark:text-white/40">
           © {new Date().getFullYear()} OpenFund
         </div>
       </aside>
@@ -75,8 +75,8 @@ export function DashboardShell({ title, subtitle, actions, children }: Dashboard
         <div className="flex flex-col gap-6 px-6 py-8">
           <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-white">{title}</h1>
-              {subtitle ? <p className="text-sm text-white/60">{subtitle}</p> : null}
+              <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+              {subtitle ? <p className="text-sm text-slate-600 dark:text-white/60">{subtitle}</p> : null}
             </div>
             {actions ? <div className="flex items-center gap-3">{actions}</div> : null}
           </header>

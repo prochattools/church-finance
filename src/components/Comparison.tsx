@@ -59,12 +59,12 @@ const cards = [
 const ComparisonCard = ({ item }: any) => {
   return (
     <div
-      className={`relative max-w-[350px] w-full pb-8 pt-6 px-4 min-h-[385px] border rounded-[16px] bg-white dark:bg-gradient-to-r from-[#1E242D] to-[#0B111B] h-full scale-1 hover:scale-[1.05] transition-all duration-300 ${
-        !item?.isGreen ? "border-[#EA2222]" : "border-[#1AAB12]"
+      className={`relative max-w-[350px] w-full pb-8 pt-6 px-4 min-h-[385px] border rounded-[16px] bg-white/85 text-slate-800 shadow-[0_30px_90px_-60px_rgba(15,23,42,0.25)] backdrop-blur-xl transition-transform duration-300 hover:scale-[1.05] dark:bg-gradient-to-r dark:from-[#1E242D] dark:to-[#0B111B] dark:text-white ${
+        !item?.isGreen ? "border-[#EA2222]/80" : "border-[#1AAB12]/80"
       }`}
     >
       <div>
-        <div className="text-black1 dark:text-white text-xl font-semibold mb-4">
+        <div className="mb-4 text-xl font-semibold">
           {item?.title}
         </div>
         {item?.items?.map((cardItem: any, index: number) => (
@@ -77,11 +77,11 @@ const ComparisonCard = ({ item }: any) => {
                 <Tick width={20} height={20} />
               </div>
             ) : (
-              <div className="text-[#EA2222] dark:text-white text-sm bg-[#FDE9E9] whitespace-nowrap dark:bg-[#EA2222] px-[6px] py-1 rounded-[5px]">
+              <div className="text-[#EA2222] text-sm bg-[#FDE9E9] whitespace-nowrap px-[6px] py-1 rounded-[5px] dark:text-white dark:bg-[#EA2222]">
                 {cardItem?.time}
               </div>
             )}
-            <p className={`text-black1 dark:text-white font-inter text-sm`}>
+            <p className={`font-inter text-sm leading-relaxed`}>
               {cardItem?.text}
             </p>
           </div>

@@ -63,8 +63,8 @@ const TestimonialsAvatars = ({ priority }: { priority?: boolean }) => {
 						</svg>
 					))}
 				</div>
-				<p className='text-sm font-medium text-white/70'>
-					<span className='text-white'>25+</span> finance teams automate reporting
+				<p className='text-sm font-medium text-slate-600 dark:text-white/70'>
+					<span className='font-semibold text-slate-900 dark:text-white'>25+</span> finance teams automate reporting
 				</p>
 			</div>
 		</div>
@@ -81,17 +81,17 @@ const Hero = () => {
 			</div>
 			<div className='mx-auto flex w-full max-w-[1200px] flex-col gap-16 lg:flex-row lg:items-center'>
 				<div className='relative z-10 w-full max-w-xl space-y-8'>
-					<div className='inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white/70 backdrop-blur-xl'>
+					<div className='inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600 shadow-sm backdrop-blur-xl dark:border-white/20 dark:bg-white/10 dark:text-white/70'>
 						<span className='inline-flex h-2 w-2 rounded-full bg-[#62f9ff]' />
 						Real-time Financial Insights
 					</div>
-					<h1 className='text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-[3.5rem]'>
+					<h1 className='text-4xl font-semibold leading-[1.05] text-slate-900 sm:text-5xl lg:text-[3.5rem] dark:text-white'>
 						See where the money goes.{' '}
 						<span className='bg-gradient-to-r from-[#7A7AFF] via-[#61D0FF] to-[#7A7AFF] bg-clip-text text-transparent'>
 							Build trust. Save hours.
 						</span>
 					</h1>
-					<p className='text-base text-white/70 sm:text-lg'>
+					<p className='text-base text-slate-700 sm:text-lg dark:text-white/70'>
 						OpenFund turns your financial data into clear, visual insights — so your
 						community knows exactly how their donations make an impact.
 					</p>
@@ -99,18 +99,18 @@ const Hero = () => {
 						<div className='w-full sm:w-auto'>
 							<IconButton text='Get OpenFund' icon={<RightArrow />} />
 						</div>
-						<button className='inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white/80 transition-all duration-200 ease-out hover:border-white/40 hover:bg-white/10'>
+						<button className='inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-6 py-3 text-sm font-semibold text-slate-700 transition-all duration-200 ease-out hover:border-slate-300 hover:bg-white dark:border-white/20 dark:bg-white/5 dark:text-white/80 dark:hover:border-white/40 dark:hover:bg-white/10'>
 							<span>View live demo</span>
 							<RightArrow />
 						</button>
 					</div>
-						<p className='text-xs font-semibold uppercase tracking-[0.4em] text-white/60'>
+						<p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-500 dark:text-white/60'>
 							Visualize your organization’s impact in minutes
 						</p>
 					<TestimonialsAvatars priority />
 				</div>
 				<div className='relative z-10 w-full max-w-[520px]'>
-					<div className='relative overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-6 shadow-[0_50px_140px_-80px_rgba(49,112,255,0.95)] backdrop-blur-2xl before:absolute before:inset-0 before:-z-10 before:bg-[linear-gradient(135deg,rgba(255,255,255,0.15)_0%,rgba(255,255,255,0.02)_100%)]'>
+					<div className='relative overflow-hidden rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-[0_50px_140px_-80px_rgba(49,112,255,0.35)] backdrop-blur-2xl before:absolute before:inset-0 before:-z-10 before:bg-[linear-gradient(135deg,rgba(255,255,255,0.25)_0%,rgba(255,255,255,0.05)_100%)] dark:border-white/15 dark:bg-white/10 dark:shadow-[0_50px_140px_-80px_rgba(49,112,255,0.95)]'>
 						<div className='absolute -top-16 left-1/2 h-32 w-[70%] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(122,122,255,0.55),_rgba(122,122,255,0))] blur-2xl' />
 						<Image
 							src={toolImg}
@@ -129,17 +129,13 @@ const Hero = () => {
 							className='relative mx-auto hidden w-full max-w-[460px] rounded-2xl shadow-[0_30px_90px_-40px_rgba(49,112,255,0.7)] dark:block'
 						/>
 						<div className='mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2'>
-							<div className='rounded-2xl border border-white/15 bg-white/8 px-5 py-4 text-sm text-white/80 backdrop-blur-xl'>
-								<p className='text-xs uppercase tracking-[0.3em] text-white/60'>
-									Response time
-								</p>
-								<p className='mt-2 text-2xl font-semibold text-white'>1m 42s</p>
+							<div className='rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-700 shadow-sm backdrop-blur-xl dark:border-white/20 dark:bg-[#060F1F]/90 dark:text-white/85'>
+								<p className='text-xs uppercase tracking-[0.3em] text-slate-600 dark:text-white/60'>Response time</p>
+								<p className='mt-2 text-2xl font-semibold text-slate-900 dark:text-white'>1m 42s</p>
 							</div>
-							<div className='rounded-2xl border border-[#24C4FF]/40 bg-[#24C4FF]/10 px-5 py-4 text-sm text-white backdrop-blur-xl'>
-								<p className='text-xs uppercase tracking-[0.3em] text-white/70'>
-									Donor satisfaction
-								</p>
-								<p className='mt-2 text-2xl font-semibold text-white'>97%</p>
+							<div className='rounded-2xl border border-[#24C4FF]/40 bg-[#24C4FF]/12 px-5 py-4 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl dark:bg-[#24C4FF]/10 dark:text-white'>
+								<p className='text-xs uppercase tracking-[0.3em] text-slate-600 dark:text-white/70'>Donor satisfaction</p>
+								<p className='mt-2 text-2xl font-semibold text-slate-900 dark:text-white'>97%</p>
 							</div>
 						</div>
 					</div>

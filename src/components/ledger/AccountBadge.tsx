@@ -26,8 +26,8 @@ export function AccountBadge({ label, identifier, fallback, className }: Account
       className={cn(
         'inline-flex max-w-[200px] items-center justify-start rounded-full border px-2.5 py-1 text-xs font-medium',
         hasLabel
-          ? 'border-white/15 bg-white/10 text-white/90'
-          : 'border-white/5 bg-white/5 text-white/60',
+          ? 'border-slate-200 bg-white text-slate-700 dark:border-white/15 dark:bg-white/10 dark:text-white/90'
+          : 'border-slate-200 bg-white text-slate-500 dark:border-white/5 dark:bg-white/5 dark:text-white/60',
         className,
       )}
     >

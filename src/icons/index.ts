@@ -41,3 +41,4 @@ export { default as Typescript2 } from "./typescript2";
 export { default as Document } from "./document";
 export { default as Info } from "./info";
 export { default as Github } from "./github";
+export { default as Question } from "./question";

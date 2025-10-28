@@ -10,6 +10,10 @@ type UseUserResponse = {
 type ClerkClientExports = {
   ClerkProvider: (props: { children: ReactNode } & Record<string, unknown>) => JSX.Element;
   useUser: () => UseUserResponse;
+  useClerk: () => {
+    signOut: (props?: Record<string, unknown>) => Promise<void> | void;
+    openUserProfile?: () => void;
+  };
   SignIn: (props: Record<string, unknown>) => JSX.Element | null;
   SignUp: (props: Record<string, unknown>) => JSX.Element | null;
 };
@@ -19,6 +23,10 @@ const createStubExports = (): ClerkClientExports => ({
   useUser: () => ({
     isLoaded: true,
     isSignedIn: true,
+  }),
+  useClerk: () => ({
+    signOut: async () => undefined,
+    openUserProfile: () => undefined,
   }),
   SignIn: () => null,
   SignUp: () => null,
@@ -32,5 +40,6 @@ if (AUTH_ENABLED) {
 
 export const ClerkProvider = exportsObject.ClerkProvider;
 export const useUser = exportsObject.useUser;
+export const useClerk = exportsObject.useClerk;
 export const SignIn = exportsObject.SignIn;
 export const SignUp = exportsObject.SignUp;
