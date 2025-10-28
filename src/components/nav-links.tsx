@@ -5,24 +5,13 @@ import { ScrollToSection } from "@/utils/scroll-to-section";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { MouseEvent } from "react";
-import { AUTH_ENABLED, getAfterSignInUrl, resolveSignInUrl } from "@/utils/auth";
-
-const DEFAULT_REDIRECT = (() => {
-  const configured = getAfterSignInUrl();
-  return configured.startsWith("/") ? configured : "/ledger";
-})();
-
-const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value);
-
-const ensureRedirectTarget = (target?: string) =>
-  target && target.startsWith("/") ? target : DEFAULT_REDIRECT;
+import { AUTH_ENABLED } from "@/utils/auth";
 
 interface NavLink {
   icon?: JSX.Element;
   title: string;
   link: string;
   requiresAuth?: boolean;
-  sectionId?: string;
 }
 
 interface PropsTypes {
@@ -37,34 +26,38 @@ const NavLinks = ({ nav_links, isFooter = false }: PropsTypes) => {
   const isSignedIn = AUTH_ENABLED ? clerkUser?.isSignedIn ?? false : true;
   const isLoaded = AUTH_ENABLED ? clerkUser?.isLoaded ?? false : true;
 
-  const handleNavigate = (event: MouseEvent<HTMLElement>, item: NavLink) => {
+  const handleNavigate = (
+    event: MouseEvent<HTMLElement>,
+    item: NavLink,
+    index: number,
+  ) => {
     if (AUTH_ENABLED && item.requiresAuth && (!isLoaded || !isSignedIn)) {
       event.preventDefault();
-      const destination = resolveSignInUrl(ensureRedirectTarget(item.link));
-      if (isAbsoluteUrl(destination)) {
-        window.location.href = destination;
-      } else {
-        router.push(destination);
-      }
-      return;
-    }
-
-    if (item.sectionId) {
-      event.preventDefault();
-      const scrollTo = () => ScrollToSection(item.sectionId!);
-
-      if (pathname === "/") {
-        scrollTo();
-      } else {
-        router.push(`/#${item.sectionId}`);
-        setTimeout(scrollTo, 800);
-      }
+      const target = item.link ?? "/";
+      const search = new URLSearchParams({ redirect_url: target });
+      router.push(`/sign-in?${search.toString()}`);
       return;
     }
 
     if (pathname === "/" && item.link === "/") {
       event.preventDefault();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      ScrollToSection(index.toString());
+      return;
+    }
+
+    // allow normal navigation but keep smooth scroll for one-page sections
+    if (item.link.startsWith("/#")) {
+      event.preventDefault();
+      router.push(item.link);
+      return;
+    }
+
+    // For internal navigation we still trigger section scroll after a delay.
+    if (pathname !== item.link && item.link === "/") {
+      router.push(item.link);
+      setTimeout(() => {
+        ScrollToSection(index.toString());
+      }, 1500);
     }
   };
 
@@ -83,12 +76,24 @@ const NavLinks = ({ nav_links, isFooter = false }: PropsTypes) => {
           ? "w-full rounded-full px-0 py-0 text-xs font-medium tracking-wide uppercase text-slate-500 dark:text-slate-300 justify-start hover:shadow-none hover:text-slate-900 dark:hover:text-white"
           : "";
 
+        if (pathname === "/" && item.link === "/") {
+          return (
+            <p
+              key={`${item.title}-${index}`}
+              className={`${baseClasses} cursor-pointer ${footerClasses}`}
+              onClick={(event) => handleNavigate(event, item, index)}
+            >
+              <span>{item.icon}</span> {item.title}
+            </p>
+          );
+        }
+
         return (
           <Link
             key={`${item.title}-${index}`}
             href={item.link}
             className={`${baseClasses} ${footerClasses}`}
-            onClick={(event) => handleNavigate(event, item)}
+            onClick={(event) => handleNavigate(event, item, index)}
           >
             <span>{item.icon}</span> {item.title}
           </Link>
