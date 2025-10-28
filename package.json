@@ -7,6 +7,7 @@
 		"dev:server": "ts-node-dev --respawn --transpile-only server/index.ts",
 		"dev:full": "concurrently \"npm run dev:server\" \"npm run dev\"",
 		"generate:ledger": "node scripts/generate-initial-ledger.js",
+		"lint": "next lint",
 		"test": "vitest run",
 		"build": "next build",
 		"start": "next start -p 3000",

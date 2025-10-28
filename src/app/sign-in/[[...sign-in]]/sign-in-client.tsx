@@ -2,12 +2,16 @@
 
 import { ReactNode, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { getAfterSignInUrl } from "@/utils/auth";
 
 type SignInClientProps = {
   children: (redirectUrl: string) => ReactNode;
 };
 
-const DEFAULT_REDIRECT = "/ledger";
+const DEFAULT_REDIRECT = (() => {
+  const configured = getAfterSignInUrl();
+  return configured.startsWith("/") ? configured : "/ledger";
+})();
 
 export default function SignInClient({ children }: SignInClientProps) {
   const searchParams = useSearchParams();

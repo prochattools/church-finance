@@ -10,25 +10,37 @@
 import { useUser } from '@/utils/clerkClient'
 import { cn } from '@/helpers/utils'
 import { useRouter } from 'next/navigation'
-import { AUTH_ENABLED } from '@/utils/auth'
+import { AUTH_ENABLED, getAfterSignInUrl, resolveSignInUrl } from '@/utils/auth'
+
+const DEFAULT_REDIRECT = (() => {
+	const configured = getAfterSignInUrl()
+	return configured.startsWith('/') ? configured : '/ledger'
+})()
+
+const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value)
 
 const ButtonSignin = ({
 	text = 'Log in',
 	extraStyle,
-	redirectUrl = '/ledger',
+	redirectUrl = DEFAULT_REDIRECT,
 }: {
 	text?: string
 	extraStyle?: string
 	redirectUrl?: string
 }) => {
 	const router = useRouter()
-	const clerkUser = AUTH_ENABLED ? useUser() : null
+	const clerkUser = useUser()
 	const isSignedIn = AUTH_ENABLED ? clerkUser?.isSignedIn ?? false : true
 	const isLoaded = AUTH_ENABLED ? clerkUser?.isLoaded ?? false : true
 
+	const sanitizeRedirectTarget = () =>
+		redirectUrl.startsWith('/') ? redirectUrl : DEFAULT_REDIRECT
+
 	const handleClick = () => {
+		const safeRedirect = sanitizeRedirectTarget()
+
 		if (!AUTH_ENABLED) {
-			router.push(redirectUrl)
+			router.push(safeRedirect)
 			return
 		}
 
@@ -37,13 +49,17 @@ const ButtonSignin = ({
 		}
 
 		if (isSignedIn) {
-			router.push(redirectUrl)
+			router.push(safeRedirect)
 			return
 		}
 
-		const target = redirectUrl ?? '/'
-		const search = new URLSearchParams({ redirect_url: target })
-		router.push(`/sign-in?${search.toString()}`)
+		const destination = resolveSignInUrl(safeRedirect)
+		if (isAbsoluteUrl(destination)) {
+			window.location.href = destination
+			return
+		}
+
+		router.push(destination)
 	}
 
 	return (

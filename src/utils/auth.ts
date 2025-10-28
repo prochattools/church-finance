@@ -25,3 +25,18 @@ export const getAfterSignInUrl = () =>
   process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL ?? "/ledger";
 export const getAfterSignUpUrl = () =>
   process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? "/ledger";
+
+const buildUrlWithRedirect = (baseUrl: string, redirectTarget: string) => {
+  if (!redirectTarget) {
+    return baseUrl;
+  }
+
+  const params = new URLSearchParams({ redirect_url: redirectTarget });
+  return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${params.toString()}`;
+};
+
+export const resolveSignInUrl = (redirectTarget: string) =>
+  buildUrlWithRedirect(getSignInUrl(), redirectTarget);
+
+export const resolveSignUpUrl = (redirectTarget: string) =>
+  buildUrlWithRedirect(getSignUpUrl(), redirectTarget);
