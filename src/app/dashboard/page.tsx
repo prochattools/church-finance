@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useLedger } from "@/context/ledger-context";
 import { cn } from "@/helpers/utils";
+import { DEFAULT_LOCALE } from "@/constants/intl";
 
 export default function Dashboard() {
   const { summary, ledgerMeta, rules } = useLedger();
@@ -55,18 +56,18 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-3">
           <DashboardCard
             title="Transactions"
-            value={summary.total.toLocaleString()}
+            value={summary.total.toLocaleString(DEFAULT_LOCALE)}
             hint="Imported records"
           />
           <DashboardCard
             title="Needs Review"
-            value={summary.reviewCount.toLocaleString()}
+            value={summary.reviewCount.toLocaleString(DEFAULT_LOCALE)}
             hint="Uncategorized items"
           />
           <DashboardCard
             title="Active rules"
-            value={rules.filter((rule) => rule.isActive).length.toString()}
-            hint={`${rules.length.toString()} total`}
+            value={rules.filter((rule) => rule.isActive).length.toLocaleString(DEFAULT_LOCALE)}
+            hint={`${rules.length.toLocaleString(DEFAULT_LOCALE)} total`}
           />
         </div>
       </div>

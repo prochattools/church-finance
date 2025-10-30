@@ -103,44 +103,85 @@ export const getLedger = async (req: Request, res: Response) => {
       },
     });
 
-    const payload = transactions.map((tx) => ({
-      id: tx.id,
-      date: tx.date,
-      description: tx.description,
-      amount: Number(tx.amountMinor) / 100,
-      amountMinor: tx.amountMinor.toString(),
-      currency: tx.currency,
-      direction: tx.direction,
-      source: tx.source,
-      counterparty: tx.counterparty,
-      reference: tx.reference,
-      accountLabel: tx.account?.name ?? null,
-      accountIdentifier: tx.account?.identifier ?? null,
-      sourceFile: tx.sourceFile,
-      categoryId: tx.categoryId,
-      categoryName: tx.category?.name ?? null,
-      ledgerMonth: tx.ledger?.month ?? null,
-      ledgerYear: tx.ledger?.year ?? null,
-      createdAt: tx.createdAt,
-      runningBalanceMinor: runningBalanceById.get(tx.id)?.toString() ?? null,
-      runningBalance: runningBalanceById.has(tx.id)
-        ? Number(runningBalanceById.get(tx.id)) / 100
-        : null,
-      classificationSource: tx.classificationSource,
-      classificationRuleId: tx.classificationRuleId,
-      classificationRuleLabel: tx.classificationRule?.label ?? null,
-      ledgerLockedAt: tx.ledger?.lockedAt ?? null,
-    }));
+    const payload = transactions.map((tx) => {
+      let suggestionConfidence: string | null = null;
+      let suggestedMainCategoryName: string | null = null;
+      let suggestedSubCategoryName: string | null = null;
+      let rawMainCategoryName: string | null = null;
+      let rawSubCategoryName: string | null = null;
 
-    const reviewCount = payload.filter((tx) => !tx.categoryId).length;
-    const totalAmountMinor = transactions.reduce((acc, tx) => acc + Number(tx.amountMinor), 0);
+      const raw = tx.rawRow as unknown;
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        const rawRecord = raw as Record<string, unknown>;
+        if (typeof rawRecord.mainCategoryName === 'string') {
+          rawMainCategoryName = rawRecord.mainCategoryName;
+        }
+        if (typeof rawRecord.categoryName === 'string') {
+          rawSubCategoryName = rawRecord.categoryName;
+        }
+        if ('suggestion' in rawRecord) {
+          const suggestion = rawRecord.suggestion as Record<string, unknown> | undefined;
+          if (suggestion && typeof suggestion === 'object') {
+            if (suggestion.confidence != null) {
+              suggestionConfidence = String(suggestion.confidence);
+            }
+            if (typeof suggestion.mainCategoryName === 'string') {
+              suggestedMainCategoryName = suggestion.mainCategoryName;
+            }
+            if (typeof suggestion.categoryName === 'string') {
+              suggestedSubCategoryName = suggestion.categoryName;
+            }
+          }
+        }
+      }
+
+      return {
+        id: tx.id,
+        date: tx.date,
+        description: tx.description,
+        amount: Number(tx.amountMinor) / 100,
+        amountMinor: tx.amountMinor.toString(),
+        currency: tx.currency,
+        direction: tx.direction,
+        source: tx.source,
+        counterparty: tx.counterparty,
+        reference: tx.reference,
+        accountLabel: tx.account?.name ?? null,
+        accountIdentifier: tx.account?.identifier ?? null,
+        sourceFile: tx.sourceFile,
+        categoryId: tx.categoryId,
+        categoryName: tx.category?.name ?? null,
+        ledgerMonth: tx.ledger?.month ?? null,
+        ledgerYear: tx.ledger?.year ?? null,
+        createdAt: tx.createdAt,
+        runningBalanceMinor: runningBalanceById.get(tx.id)?.toString() ?? null,
+        runningBalance: runningBalanceById.has(tx.id)
+          ? Number(runningBalanceById.get(tx.id)) / 100
+          : null,
+        classificationSource: tx.classificationSource,
+        classificationRuleId: tx.classificationRuleId,
+        classificationRuleLabel: tx.classificationRule?.label ?? null,
+        ledgerLockedAt: tx.ledger?.lockedAt ?? null,
+        suggestionConfidence,
+        suggestedMainCategoryName: suggestedMainCategoryName ?? rawMainCategoryName,
+        suggestedSubCategoryName: suggestedSubCategoryName ?? rawSubCategoryName ?? tx.category?.name ?? null,
+        rawMainCategoryName,
+        rawCategoryName: rawSubCategoryName,
+      };
+    });
+
+    const approvedTransactions = transactions.filter((tx) => tx.classificationSource === 'manual');
+    const reviewCount = transactions.filter((tx) => tx.classificationSource !== 'manual').length;
+    const autoCategorized = transactions.filter(
+      (tx) => tx.classificationSource === 'history' || tx.classificationSource === 'rule',
+    ).length;
+    const totalAmountMinor = approvedTransactions.reduce((acc, tx) => acc + Number(tx.amountMinor), 0);
     const totalAmount = totalAmountMinor / 100;
-    const autoCategorized = payload.length - reviewCount;
 
     return res.json({
       transactions: payload,
       summary: {
-        total: payload.length,
+        total: approvedTransactions.length,
         reviewCount,
         autoCategorized,
         totalAmount,

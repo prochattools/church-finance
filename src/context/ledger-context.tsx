@@ -2,7 +2,6 @@
 
 import Papa, { ParseResult } from 'papaparse';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import initialLedger from '@/data/initial-ledger.json';
 import {
   fetchLedger,
   uploadImportFile,
@@ -128,36 +127,6 @@ const resolveAccountMetadata = (
 
 type UUID = string;
 
-type RawCategory = {
-  id: string;
-  name: string;
-  parentId: string | null;
-};
-
-type RawTransaction = {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  source: string;
-  accountLabel?: string | null;
-  accountIdentifier?: string | null;
-  normalizedKey?: string;
-  notificationDetail?: string | null;
-  categoryId: string | null;
-  categoryName: string | null;
-  mainCategoryId: string | null;
-  mainCategoryName?: string | null;
-  createdAt: string;
-  autoCategorized?: boolean;
-  needsManualCategory?: boolean;
-};
-
-type InitialLedgerFile = {
-  categories: RawCategory[];
-  transactions: RawTransaction[];
-};
-
 type RuleSummary = {
   id: string;
   label: string;
@@ -216,6 +185,11 @@ type ApiLedgerTransaction = {
   classificationRuleId?: string | null;
   classificationRuleLabel?: string | null;
   ledgerLockedAt?: string | Date | null;
+  suggestionConfidence?: 'exact' | 'description' | 'account' | 'overall' | 'rule' | 'review' | null;
+  suggestedMainCategoryName?: string | null;
+  suggestedSubCategoryName?: string | null;
+  rawMainCategoryName?: string | null;
+  rawCategoryName?: string | null;
 };
 
 type ApiLedgerSummary = {
@@ -245,6 +219,122 @@ export interface Category {
   color?: string | null;
 }
 
+const slugify = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+export const deriveMainCategoryId = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const slug = slugify(value);
+  if (!slug) return null;
+  return `main:${slug}`;
+};
+
+const splitCategoryLabel = (
+  value?: string | null,
+): { main: string | null; sub: string | null } => {
+  if (!value) {
+    return { main: null, sub: null };
+  }
+
+  const parts = value.split(' — ');
+  if (parts.length === 1) {
+    const trimmed = parts[0]!.trim();
+    const safe = trimmed.length ? trimmed : null;
+    return { main: safe, sub: safe };
+  }
+
+  const main = parts[0]!.trim();
+  const sub = parts.slice(1).join(' — ').trim();
+  return {
+    main: main.length ? main : null,
+    sub: sub.length ? sub : (main.length ? main : null),
+  };
+};
+
+const firstNonEmpty = (values: Array<string | null | undefined>): string | null => {
+  for (const value of values) {
+    if (!value) continue;
+    const trimmed = value.trim();
+    if (trimmed.length) return trimmed;
+  }
+  return null;
+};
+
+const distinctFrom = (value: string | null, other: string | null): string | null => {
+  if (!value) return null;
+  if (!other) return value;
+  return value.trim() === other.trim() ? null : value;
+};
+
+const deriveCategoryNames = (
+  tx: Pick<
+    ApiLedgerTransaction,
+    | 'mainCategoryName'
+    | 'categoryName'
+    | 'suggestedMainCategoryName'
+    | 'suggestedSubCategoryName'
+    | 'rawMainCategoryName'
+    | 'rawCategoryName'
+  >,
+) => {
+  const fromCategory = splitCategoryLabel(tx.categoryName ?? null);
+  const fromSuggestedSub = splitCategoryLabel(tx.suggestedSubCategoryName ?? null);
+  const fromSuggestedMain = splitCategoryLabel(tx.suggestedMainCategoryName ?? null);
+  const fromRawSub = splitCategoryLabel(tx.rawCategoryName ?? null);
+  const fromRawMain = splitCategoryLabel(tx.rawMainCategoryName ?? null);
+
+  const mainCandidates = [
+    tx.mainCategoryName,
+    fromSuggestedMain.main,
+    fromRawMain.main,
+    fromCategory.main,
+    fromSuggestedSub.main,
+    fromRawSub.main,
+  ];
+
+  const mainName = firstNonEmpty(mainCandidates);
+
+  const subCandidatesPrimary = [
+    distinctFrom(fromCategory.sub, mainName),
+    distinctFrom(fromSuggestedSub.sub, mainName),
+    distinctFrom(fromRawSub.sub, mainName),
+  ];
+
+  const subName =
+    firstNonEmpty(subCandidatesPrimary) ??
+    firstNonEmpty([fromCategory.sub, fromSuggestedSub.sub, fromRawSub.sub]) ??
+    mainName ??
+    null;
+
+  const suggestedMainName = firstNonEmpty([
+    fromSuggestedMain.main,
+    fromRawMain.main,
+    mainName,
+  ]);
+
+  const suggestedSubName =
+    firstNonEmpty([
+      distinctFrom(fromSuggestedSub.sub, mainName),
+      distinctFrom(fromRawSub.sub, mainName),
+      subName,
+    ]) ?? subName ?? null;
+
+  const rawMainName = fromRawMain.main;
+  const rawSubName = distinctFrom(fromRawSub.sub, rawMainName) ?? fromRawSub.sub ?? rawMainName;
+
+  return {
+    mainName: mainName ?? null,
+    subName: subName ?? null,
+    suggestedMainName: suggestedMainName ?? null,
+    suggestedSubName: suggestedSubName ?? null,
+    rawMainName: rawMainName ?? null,
+    rawSubName: rawSubName ?? null,
+  };
+};
+
 export interface LedgerTransaction {
   id: UUID;
   date: string; // ISO
@@ -270,6 +360,11 @@ export interface LedgerTransaction {
   classificationRuleId?: string | null;
   classificationRuleLabel?: string | null;
   ledgerLockedAt?: string | null;
+  suggestionConfidence?: 'exact' | 'description' | 'account' | 'overall' | 'rule' | 'review' | null;
+  suggestedMainCategoryName?: string | null;
+  suggestedSubCategoryName?: string | null;
+  rawMainCategoryName?: string | null;
+  rawCategoryName?: string | null;
 }
 
 interface ImportSummary {
@@ -322,8 +417,6 @@ interface LedgerContextValue {
 
 const LedgerContext = createContext<LedgerContextValue | undefined>(undefined);
 
-const STORAGE_KEY = 'ledger-mvp-state-v2';
-
 const COLOR_PALETTE = ['#4C6EF5', '#15AABF', '#40C057', '#FCC419', '#FF6B6B', '#7950F2', '#F06595', '#20C997'];
 
 const PIPELINE_MODE = process.env.NEXT_PUBLIC_IMPORT_PIPELINE_MODE ?? 'server';
@@ -368,6 +461,19 @@ const mapApiTransaction = (tx: ApiLedgerTransaction): LedgerTransaction => {
   const ledgerLockedAt = tx.ledgerLockedAt
     ? new Date(tx.ledgerLockedAt).toISOString()
     : null;
+  const classification = tx.classificationSource ?? 'none';
+  const autoCategorized = classification === 'history' || classification === 'rule';
+  const needsManualCategory = classification !== 'manual';
+
+  const {
+    mainName,
+    subName,
+    suggestedMainName,
+    suggestedSubName,
+    rawMainName,
+    rawSubName,
+  } = deriveCategoryNames(tx);
+  const mainCategoryId = deriveMainCategoryId(mainName);
 
   return {
     id: tx.id,
@@ -380,20 +486,25 @@ const mapApiTransaction = (tx: ApiLedgerTransaction): LedgerTransaction => {
     normalizedKey,
     notificationDetail: tx.reference ?? null,
     categoryId: tx.categoryId ?? null,
-    categoryName: tx.categoryName ?? null,
-    mainCategoryId: null,
-    mainCategoryName: null,
+    categoryName: subName,
+    mainCategoryId,
+    mainCategoryName: mainName,
     ledgerMonth,
     ledgerYear,
     createdAt,
-    autoCategorized: Boolean(tx.categoryId),
-    needsManualCategory: !tx.categoryId,
+    autoCategorized,
+    needsManualCategory,
     runningBalance,
     runningBalanceMinor: runningMinor,
     classificationSource: tx.classificationSource ?? 'none',
     classificationRuleId: tx.classificationRuleId ?? null,
     classificationRuleLabel: tx.classificationRuleLabel ?? null,
     ledgerLockedAt,
+    suggestionConfidence: tx.suggestionConfidence ?? null,
+    suggestedMainCategoryName: suggestedMainName,
+    suggestedSubCategoryName: suggestedSubName,
+    rawMainCategoryName: rawMainName,
+    rawCategoryName: rawSubName,
   };
 };
 
@@ -575,13 +686,6 @@ const buildTransactionFromRow = (row: ParsedRow): Omit<LedgerTransaction, 'categ
   };
 };
 
-const hydrateCategory = (raw: RawCategory, index: number): Category => ({
-  id: raw.id,
-  name: raw.name,
-  parentId: raw.parentId,
-  color: COLOR_PALETTE[index % COLOR_PALETTE.length],
-});
-
 const ensureCategoryIndex = (categories: Category[]): { map: Map<string, Category>; tree: CategoryTree } => {
   const map = new Map<string, Category>();
   const byParent: Record<string, Category[]> = {};
@@ -608,161 +712,69 @@ const ensureCategoryIndex = (categories: Category[]): { map: Map<string, Categor
   };
 };
 
-const deriveMainCategory = (categoryId: string | null, categoryIndex: Map<string, Category>): Category | null => {
-  if (!categoryId) return null;
-  const category = categoryIndex.get(categoryId);
-  if (!category) return null;
-  if (!category.parentId) {
-    return category;
-  }
-  return categoryIndex.get(category.parentId) ?? null;
-};
-
-const hydrateTransaction = (
-  raw: RawTransaction,
-  categoryIndex: Map<string, Category>,
-): LedgerTransaction => {
-  const date = new Date(raw.date);
-  const ledgerMonth = Number.isNaN(date.getTime()) ? 1 : date.getUTCMonth() + 1;
-  const ledgerYear = Number.isNaN(date.getTime()) ? new Date().getUTCFullYear() : date.getUTCFullYear();
-
-  const category = raw.categoryId ? categoryIndex.get(raw.categoryId) ?? null : null;
-  const mainCategory = raw.mainCategoryId
-    ? categoryIndex.get(raw.mainCategoryId) ?? null
-    : deriveMainCategory(raw.categoryId, categoryIndex);
-  const resolvedAccount = resolveAccountMetadata(raw.source);
-  const accountLabel = raw.accountLabel ?? resolvedAccount.label ?? null;
-  const accountIdentifier =
-    raw.accountIdentifier ??
-    (accountLabel ? resolvedAccount.identifier ?? raw.source ?? null : null);
-
-  return {
-    id: raw.id,
-    date: raw.date,
-    description: raw.description,
-    amount: raw.amount,
-    source: raw.source,
-    accountLabel,
-    accountIdentifier: accountIdentifier ?? null,
-    normalizedKey: raw.normalizedKey ?? normaliseDescription(raw.description),
-    notificationDetail: raw.notificationDetail ?? null,
-    categoryId: raw.categoryId,
-    categoryName: raw.categoryName ?? category?.name ?? null,
-    mainCategoryId: mainCategory?.id ?? null,
-    mainCategoryName: raw.mainCategoryName ?? mainCategory?.name ?? null,
-    ledgerMonth,
-    ledgerYear,
-    createdAt: raw.createdAt ?? new Date().toISOString(),
-    autoCategorized: Boolean(raw.autoCategorized),
-    needsManualCategory: Boolean(raw.needsManualCategory) && !raw.autoCategorized,
-  };
-};
-
-const prepareInitialState = (): LedgerState => {
-  const file = initialLedger as InitialLedgerFile;
-  const baseCategories = file.categories.map(hydrateCategory);
-  const mergedCategories = [...baseCategories, REVIEW_MAIN_CATEGORY, REVIEW_SUB_CATEGORY];
-
-  const { map } = ensureCategoryIndex(mergedCategories);
-
-  const transactions = file.transactions.map((tx) => hydrateTransaction(tx, map));
-
-  return {
-    categories: mergedCategories,
-    transactions,
-  };
-};
-
-const DEFAULT_STATE: LedgerState = prepareInitialState();
-
-const mergeStoredState = (stored: Partial<LedgerState> | null): LedgerState => {
-  if (!stored) {
-    return DEFAULT_STATE;
-  }
-
-  const categories = [...DEFAULT_STATE.categories];
-  const seen = new Set(categories.map((cat) => cat.id));
-
-  (stored.categories ?? []).forEach((category) => {
-    if (!seen.has(category.id)) {
-      seen.add(category.id);
-      categories.push(category);
-    }
-  });
-
-  const { map } = ensureCategoryIndex(categories);
-  const transactions = (stored.transactions ?? DEFAULT_STATE.transactions).map((tx) => ({
-    ...hydrateTransaction(
-      {
-        ...tx,
-        mainCategoryId: tx.mainCategoryId ?? null,
-        categoryName: tx.categoryName ?? null,
-        normalizedKey: tx.normalizedKey ?? normaliseDescription(tx.description),
-        notificationDetail: (tx as Partial<LedgerTransaction>).notificationDetail ?? null,
-        needsManualCategory: (tx as Partial<LedgerTransaction>).needsManualCategory,
-      },
-      map,
-    ),
-    autoCategorized: Boolean(tx.autoCategorized),
-    needsManualCategory: Boolean((tx as Partial<LedgerTransaction>).needsManualCategory),
-  }));
-
-  return { categories, transactions };
+const DEFAULT_STATE: LedgerState = {
+  categories: [REVIEW_MAIN_CATEGORY, REVIEW_SUB_CATEGORY],
+  transactions: [],
 };
 
 const mergeCategoriesWithServer = (current: Category[], apiTransactions: ApiLedgerTransaction[]): Category[] => {
   if (!apiTransactions.length) return current;
 
-  const existingMap = new Map(current.map((category) => [category.id, category] as const));
-  const additions: Category[] = [];
+  const next = current.map((category) => ({ ...category }));
+  const byId = new Map(next.map((category) => [category.id, category] as const));
 
-  apiTransactions.forEach((tx) => {
-    if (!tx.categoryId || !tx.categoryName || existingMap.has(tx.categoryId)) {
+  const ensureCategory = (id: string | null, name: string | null, parentId: string | null) => {
+    if (!id || !name) return;
+    const existing = byId.get(id);
+    if (existing) {
+      const updated: Category = {
+        ...existing,
+        name: existing.name || name,
+        parentId: parentId ?? existing.parentId ?? null,
+      };
+      const index = next.findIndex((category) => category.id === id);
+      if (index >= 0) {
+        next[index] = updated;
+      }
+      byId.set(id, updated);
       return;
     }
 
-    const color = COLOR_PALETTE[(current.length + additions.length) % COLOR_PALETTE.length];
-    const category: Category = {
-      id: tx.categoryId,
-      name: tx.categoryName,
-      parentId: null,
+    const color = COLOR_PALETTE[(next.length) % COLOR_PALETTE.length];
+    const created: Category = {
+      id,
+      name,
+      parentId,
       color,
     };
+    next.push(created);
+    byId.set(id, created);
+  };
 
-    existingMap.set(category.id, category);
-    additions.push(category);
+  apiTransactions.forEach((tx) => {
+    const {
+      mainName,
+      subName,
+      suggestedMainName,
+      suggestedSubName,
+      rawMainName,
+      rawSubName,
+    } = deriveCategoryNames(tx);
+
+    const mainLabel = firstNonEmpty([mainName, suggestedMainName, rawMainName]);
+    const subLabel = firstNonEmpty([subName, suggestedSubName, rawSubName]);
+    const mainId = deriveMainCategoryId(mainLabel);
+
+    if (mainId && mainLabel) {
+      ensureCategory(mainId, mainLabel, null);
+    }
+
+    if (tx.categoryId && subLabel) {
+      ensureCategory(tx.categoryId, subLabel, mainId ?? null);
+    }
   });
 
-  return additions.length ? [...current, ...additions] : current;
-};
-
-const loadState = (): LedgerState => {
-  if (typeof window === 'undefined') {
-    return DEFAULT_STATE;
-  }
-
-  try {
-    const storedRaw = window.localStorage.getItem(STORAGE_KEY);
-    if (!storedRaw) {
-      return DEFAULT_STATE;
-    }
-    const parsed = JSON.parse(storedRaw) as Partial<LedgerState>;
-    return mergeStoredState(parsed);
-  } catch (error) {
-    console.error('Failed to load ledger state', error);
-    return DEFAULT_STATE;
-  }
-};
-
-const persistState = (state: LedgerState) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.error('Failed to persist ledger state', error);
-  }
+  return next;
 };
 
 const sanitizeKey = (value?: string | null): string | null => {
@@ -993,14 +1005,6 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
   const [rules, setRules] = useState<RuleSummary[]>([]);
   const [ledgerMeta, setLedgerMeta] = useState<LedgerMeta[]>([]);
 
-  useEffect(() => {
-    setState(loadState());
-  }, []);
-
-  useEffect(() => {
-    persistState(state);
-  }, [state]);
-
   const refreshRules = useCallback(async () => {
     if (!USE_SERVER_PIPELINE) return;
     try {
@@ -1084,12 +1088,15 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const summary = useMemo(() => {
-    const reviewCount = state.transactions.filter((tx) => tx.needsManualCategory).length;
-    const autoCategorized = state.transactions.filter((tx) => tx.autoCategorized).length;
-    const totalAmount = state.transactions.reduce((acc, tx) => acc + tx.amount, 0);
+    const approved = state.transactions.filter((tx) => tx.classificationSource === 'manual');
+    const reviewCount = state.transactions.length - approved.length;
+    const autoCategorized = state.transactions.filter(
+      (tx) => tx.classificationSource === 'history' || tx.classificationSource === 'rule',
+    ).length;
+    const totalAmount = approved.reduce((acc, tx) => acc + tx.amount, 0);
 
     return {
-      total: state.transactions.length,
+      total: approved.length,
       reviewCount,
       autoCategorized,
       totalAmount,
@@ -1305,7 +1312,6 @@ export const LedgerProvider = ({ children }: { children: ReactNode }) => {
 
   const clearAll = useCallback(() => {
     setState(DEFAULT_STATE);
-    persistState(DEFAULT_STATE);
   }, []);
 
   const value = useMemo<LedgerContextValue>(

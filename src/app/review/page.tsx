@@ -8,6 +8,7 @@ import type { Category, LedgerTransaction } from '@/context/ledger-context';
 import { ClipboardCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { RuleManager, RuleFormState } from '@/components/review/RuleManager';
+import { DEFAULT_LOCALE } from '@/constants/intl';
 
 const REVIEW_MAIN_ID = 'cat-review';
 const REVIEW_SUB_ID = 'sub-review-needs-category';
@@ -48,8 +49,8 @@ function ReviewPageContent() {
   }, [mainCategories, categoryTree.byParent]);
 
   const suggestions = useMemo(
-    () => buildSuggestions(reviewTransactions, transactions),
-    [reviewTransactions, transactions],
+    () => buildSuggestions(reviewTransactions),
+    [reviewTransactions],
   );
 
   const [ruleDraft, setRuleDraft] = useState<Partial<RuleFormState> | undefined>(undefined);
@@ -64,7 +65,7 @@ function ReviewPageContent() {
       priority: 100,
       isActive: true,
     });
-    toast.success('Rule form pre-filled on the right. Adjust and save.');
+    toast.success('Rule form pre-filled above. Adjust and save.');
   }, []);
 
   const categoryOptions = useMemo(
@@ -78,11 +79,25 @@ function ReviewPageContent() {
       subtitle="Resolve uncategorized transactions so your reports stay accurate"
       actions={
         <div className="hidden items-center gap-2 text-xs font-medium text-white/60 sm:inline-flex">
-          <ClipboardCheck className="h-4 w-4" /> {reviewTransactions.length.toLocaleString()} items pending
+          <ClipboardCheck className="h-4 w-4" /> {reviewTransactions.length.toLocaleString(DEFAULT_LOCALE)} items pending
         </div>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
+      <div className="space-y-6">
+        <section className="rounded-2xl border border-white/5 bg-[#060F1F]/70 p-6 shadow-inner shadow-black/30">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-white/60">Categorization rules</h2>
+          <p className="mt-1 text-xs text-white/50">
+            Automate recurring vendors with prioritized patterns. Save a rule to apply it to future imports instantly.
+          </p>
+          <div className="mt-4">
+            <RuleManager
+              categoryOptions={categoryOptions}
+              draft={ruleDraft}
+              onDraftConsumed={() => setRuleDraft(undefined)}
+            />
+          </div>
+        </section>
+
         <section className="rounded-2xl border border-white/5 bg-[#060F1F]/60 p-6 shadow-inner shadow-black/30">
           <ReviewTable
             transactions={reviewTransactions}
@@ -92,129 +107,54 @@ function ReviewPageContent() {
             onCreateRule={handleCreateRuleDraft}
           />
         </section>
-        <aside className="space-y-4">
-          <RuleManager
-            categoryOptions={categoryOptions}
-            draft={ruleDraft}
-            onDraftConsumed={() => setRuleDraft(undefined)}
-          />
-        </aside>
       </div>
     </DashboardShell>
   );
 }
 
-const AMOUNT_THRESHOLD = 0.01;
-
 type Suggestion = {
   mainCategoryId?: string | null;
+  mainCategoryName?: string | null;
   categoryId?: string | null;
-  confidence: 'high' | 'medium' | 'low';
+  categoryName?: string | null;
+  confidence: 'exact' | 'fuzzy' | 'none';
 };
 
-function buildSuggestions(
-  reviewTransactions: LedgerTransaction[],
-  allTransactions: LedgerTransaction[],
-): Record<string, Suggestion> {
+function buildSuggestions(reviewTransactions: LedgerTransaction[]): Record<string, Suggestion> {
   if (!reviewTransactions.length) return {};
-
-  const history = allTransactions
-    .filter((tx) => tx.categoryId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const suggestions: Record<string, Suggestion> = {};
 
   reviewTransactions.forEach((tx) => {
-    const suggestion = guessCategory(tx, history);
-    if (suggestion) {
-      suggestions[tx.id] = suggestion;
+    const mainCategoryId = tx.mainCategoryId ?? null;
+    const categoryId = tx.categoryId ?? null;
+    const mainCategoryName =
+      tx.mainCategoryName ?? tx.suggestedMainCategoryName ?? tx.rawMainCategoryName ?? null;
+    const categoryName = tx.categoryName ?? tx.suggestedSubCategoryName ?? tx.rawCategoryName ?? null;
+
+    let confidence: Suggestion['confidence'] = 'none';
+    if (
+      tx.classificationSource === 'history' ||
+      tx.classificationSource === 'rule' ||
+      tx.suggestionConfidence === 'exact'
+    ) {
+      confidence = 'exact';
+    } else if (
+      tx.classificationSource === 'import' &&
+      tx.suggestionConfidence &&
+      tx.suggestionConfidence !== 'review'
+    ) {
+      confidence = 'fuzzy';
     }
+
+    suggestions[tx.id] = {
+      mainCategoryId,
+      mainCategoryName,
+      categoryId,
+      categoryName,
+      confidence,
+    };
   });
 
   return suggestions;
-}
-
-function guessCategory(tx: LedgerTransaction, history: LedgerTransaction[]): Suggestion | null {
-  const bySourceAmount = history.filter(
-    (item) =>
-      item.source === tx.source &&
-      Math.abs(item.amount - tx.amount) <= AMOUNT_THRESHOLD &&
-      item.categoryId,
-  );
-
-  if (bySourceAmount.length) {
-    const chosen = chooseMostCommon(bySourceAmount);
-    return {
-      mainCategoryId: chosen.mainCategoryId ?? chosen.categoryId ?? null,
-      categoryId: chosen.categoryId ?? null,
-      confidence: 'high',
-    };
-  }
-
-  const byComposite = history.filter(
-    (item) =>
-      item.source === tx.source &&
-      item.normalizedKey === tx.normalizedKey &&
-      item.categoryId,
-  );
-  if (byComposite.length) {
-    const chosen = chooseMostCommon(byComposite);
-    return {
-      mainCategoryId: chosen.mainCategoryId ?? chosen.categoryId ?? null,
-      categoryId: chosen.categoryId ?? null,
-      confidence: 'medium',
-    };
-  }
-
-  const bySource = history.filter((item) => item.source === tx.source && item.categoryId);
-  if (bySource.length) {
-    const chosen = chooseMostRecent(bySource);
-    return {
-      mainCategoryId: chosen.mainCategoryId ?? chosen.categoryId ?? null,
-      categoryId: chosen.categoryId ?? null,
-      confidence: 'medium',
-    };
-  }
-
-  const byNormalized = history.filter(
-    (item) => item.normalizedKey === tx.normalizedKey && item.categoryId,
-  );
-  if (byNormalized.length) {
-    const chosen = chooseMostCommon(byNormalized);
-    return {
-      mainCategoryId: chosen.mainCategoryId ?? chosen.categoryId ?? null,
-      categoryId: chosen.categoryId ?? null,
-      confidence: 'low',
-    };
-  }
-
-  const byAmount = history.filter((item) => item.amount === tx.amount && item.categoryId);
-  if (byAmount.length) {
-    const chosen = chooseMostRecent(byAmount);
-    return {
-      mainCategoryId: chosen.mainCategoryId ?? chosen.categoryId ?? null,
-      categoryId: chosen.categoryId ?? null,
-      confidence: 'low',
-    };
-  }
-
-  return null;
-}
-
-function chooseMostCommon(items: LedgerTransaction[]): LedgerTransaction {
-  const counts = new Map<string, { item: LedgerTransaction; count: number }>();
-  items.forEach((item) => {
-    const key = item.categoryId ?? item.mainCategoryId ?? '';
-    const entry = counts.get(key) ?? { item, count: 0 };
-    entry.item = item;
-    entry.count += 1;
-    counts.set(key, entry);
-  });
-
-  const sorted = Array.from(counts.values()).sort((a, b) => b.count - a.count);
-  return sorted[0]?.item ?? items[0];
-}
-
-function chooseMostRecent(items: LedgerTransaction[]): LedgerTransaction {
-  return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] ?? items[0];
 }

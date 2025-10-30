@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "next dev",
-		"dev:server": "ts-node-dev --respawn --transpile-only server/index.ts",
+		"dev:server": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' ts-node-dev --respawn --transpile-only server/index.ts",
 		"dev:full": "concurrently \"npm run dev:server\" \"npm run dev\"",
 		"generate:ledger": "node scripts/generate-initial-ledger.js",
 		"lint": "next lint",

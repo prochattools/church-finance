@@ -32,6 +32,7 @@ import {
 } from 'recharts';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/helpers/utils';
+import { DEFAULT_LOCALE } from '@/constants/intl';
 
 const COLORS = ['#6366F1', '#22D3EE', '#F472B6', '#FBBF24', '#34D399', '#F97316', '#A855F7', '#60A5FA'];
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -58,15 +59,14 @@ type AccountFilterKey = 'all' | 'yeshua' | 'vila' | 'savings';
 
 const ACCOUNT_FILTER_CONFIG: Record<
   AccountFilterKey,
-  { label: string; matchLabels?: string[]; dummyKey?: string }
+  { label: string; matchLabels?: string[] }
 > = {
   all: { label: 'All accounts' },
   yeshua: { label: 'Yeshua Academy', matchLabels: ['Yeshua Academy'] },
-  vila: { label: 'Vila Solidária', matchLabels: ['Vila Solidária'], dummyKey: 'Vila Solidária' },
+  vila: { label: 'Vila Solidária', matchLabels: ['Vila Solidária'] },
   savings: {
     label: 'Yeshua Academy Savings',
     matchLabels: ['Yeshua Academy Savings'],
-    dummyKey: 'Yeshua Academy Savings',
   },
 };
 
@@ -91,154 +91,8 @@ type AccountBreakdownEntry = {
   expenses: number;
   net: number;
   count: number;
-  isDummy: boolean;
 };
 
-type DummySummary = {
-  income: number;
-  expenses: number;
-  net: number;
-  count: number;
-};
-
-type DummyTransactionInput = {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  accountLabel: string;
-  accountIdentifier: string;
-  source?: string;
-  categoryName?: string | null;
-  mainCategoryName?: string | null;
-};
-
-const createDummyTransaction = ({
-  id,
-  date,
-  description,
-  amount,
-  accountLabel,
-  accountIdentifier,
-  source,
-  categoryName,
-  mainCategoryName,
-}: DummyTransactionInput): LedgerTransaction => {
-  const parsed = new Date(date);
-  const safeDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-  const normalizedKey = description
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return {
-    id,
-    date: safeDate.toISOString(),
-    description,
-    amount,
-    source: source ?? accountLabel,
-    accountLabel,
-    accountIdentifier,
-    normalizedKey,
-    categoryId: null,
-    categoryName: categoryName ?? null,
-    mainCategoryId: null,
-    mainCategoryName: mainCategoryName ?? null,
-    ledgerMonth: safeDate.getUTCMonth() + 1,
-    ledgerYear: safeDate.getUTCFullYear(),
-    createdAt: new Date().toISOString(),
-    autoCategorized: false,
-    needsManualCategory: false,
-    notificationDetail: null,
-  };
-};
-
-const DUMMY_ACCOUNT_TRANSACTIONS: Record<string, LedgerTransaction[]> = {
-  'Vila Solidária': [
-    createDummyTransaction({
-      id: 'dummy-vila-1',
-      date: '2025-07-01',
-      description: 'Community outreach supplies',
-      amount: -320.5,
-      accountLabel: 'Vila Solidária',
-      accountIdentifier: 'NL89INGB0006369960',
-      source: 'Vila Solidária Outreach',
-      categoryName: 'Outreach',
-      mainCategoryName: 'Projects',
-    }),
-    createDummyTransaction({
-      id: 'dummy-vila-2',
-      date: '2025-07-05',
-      description: 'Donor contribution – local business',
-      amount: 1250,
-      accountLabel: 'Vila Solidária',
-      accountIdentifier: 'NL89INGB0006369960',
-      source: 'Local Donor',
-      categoryName: 'Gift',
-      mainCategoryName: 'Income',
-    }),
-    createDummyTransaction({
-      id: 'dummy-vila-3',
-      date: '2025-07-12',
-      description: 'Volunteer appreciation event',
-      amount: -180.75,
-      accountLabel: 'Vila Solidária',
-      accountIdentifier: 'NL89INGB0006369960',
-      source: 'Event Catering',
-      categoryName: 'Community',
-      mainCategoryName: 'Operations',
-    }),
-  ],
-  'Yeshua Academy Savings': [
-    createDummyTransaction({
-      id: 'dummy-savings-1',
-      date: '2025-06-30',
-      description: 'Monthly reserve transfer',
-      amount: 2000,
-      accountLabel: 'Yeshua Academy Savings',
-      accountIdentifier: 'F 951-98948',
-      source: 'Operating Account Transfer',
-      categoryName: 'Reserve',
-      mainCategoryName: 'Savings',
-    }),
-    createDummyTransaction({
-      id: 'dummy-savings-2',
-      date: '2025-07-08',
-      description: 'Emergency fund withdrawal',
-      amount: -450,
-      accountLabel: 'Yeshua Academy Savings',
-      accountIdentifier: 'F 951-98948',
-      source: 'Emergency Repair',
-      categoryName: 'Maintenance',
-      mainCategoryName: 'Facilities',
-    }),
-  ],
-};
-
-const computeDummySummary = (key: keyof typeof DUMMY_ACCOUNT_TRANSACTIONS): DummySummary => {
-  const items = DUMMY_ACCOUNT_TRANSACTIONS[key] ?? [];
-  return items.reduce<DummySummary>(
-    (acc, tx) => {
-      if (tx.amount >= 0) {
-        acc.income += tx.amount;
-        acc.net += tx.amount;
-      } else {
-        const expense = Math.abs(tx.amount);
-        acc.expenses += expense;
-        acc.net -= expense;
-      }
-      acc.count += 1;
-      return acc;
-    },
-    { income: 0, expenses: 0, net: 0, count: 0 },
-  );
-};
-
-const ACCOUNT_DUMMY_SUMMARIES: Partial<Record<AccountFilterKey, DummySummary>> = {
-  vila: computeDummySummary('Vila Solidária'),
-  savings: computeDummySummary('Yeshua Academy Savings'),
-};
 const COLUMN_STORAGE_KEY = 'ledger-column-visibility-v1';
 const COLUMN_DEFINITIONS: Array<{ key: keyof LedgerColumnVisibility; label: string }> = [
   { key: 'date', label: 'Date' },
@@ -318,13 +172,17 @@ function LedgerPageSkeleton() {
 
 function LedgerPageContent() {
   const { transactions, summary, categoryTree } = useLedger();
+  const approvedTransactions = useMemo(
+    () => transactions.filter((tx) => tx.classificationSource === 'manual'),
+    [transactions],
+  );
   const searchParams = useSearchParams();
   const view = (searchParams?.get('view') ?? 'dashboard') as 'dashboard' | 'transactions' | 'cashflow' | 'overview';
 
-  const dashboardBreakdown = useMemo(() => buildSpendingBreakdown(transactions), [transactions]);
-  const dashboardLines = useMemo(() => buildLineData(transactions), [transactions]);
-  const dashboardCashFlow = useMemo(() => buildCashFlowData(transactions), [transactions]);
-  const dashboardPlanned = useMemo(() => buildPlannedSummary(transactions), [transactions]);
+  const dashboardBreakdown = useMemo(() => buildSpendingBreakdown(approvedTransactions), [approvedTransactions]);
+  const dashboardLines = useMemo(() => buildLineData(approvedTransactions), [approvedTransactions]);
+  const dashboardCashFlow = useMemo(() => buildCashFlowData(approvedTransactions), [approvedTransactions]);
+  const dashboardPlanned = useMemo(() => buildPlannedSummary(approvedTransactions), [approvedTransactions]);
 
   const { title, subtitle, actions } = useMemo(() => {
     switch (view) {
@@ -390,7 +248,7 @@ function LedgerPageContent() {
       return <CashFlowView cashflow={dashboardCashFlow} />;
     }
     if (view === 'overview') {
-      return <MonthlyOverviewView transactions={transactions} categoryTree={categoryTree} />;
+      return <MonthlyOverviewView transactions={approvedTransactions} categoryTree={categoryTree} />;
     }
     return (
       <DashboardView
@@ -638,7 +496,6 @@ function MonthlyOverviewView({
         expenses: 0,
         net: 0,
         count: 0,
-        isDummy: false,
       });
     });
 
@@ -668,21 +525,6 @@ function MonthlyOverviewView({
       bucket.count += 1;
     });
 
-    baseOrder.forEach((key) => {
-      const bucket = baseMap.get(key);
-      if (!bucket) return;
-      if (bucket.count === 0 && bucket.income === 0 && bucket.expenses === 0) {
-        const dummy = ACCOUNT_DUMMY_SUMMARIES[key];
-        if (dummy) {
-          bucket.income = dummy.income;
-          bucket.expenses = dummy.expenses;
-          bucket.net = dummy.net;
-          bucket.count = dummy.count;
-          bucket.isDummy = true;
-        }
-      }
-    });
-
     return baseOrder
       .map((key) => baseMap.get(key)!)
       .filter((entry) => entry.count > 0 || entry.income > 0 || entry.expenses > 0);
@@ -700,15 +542,6 @@ function MonthlyOverviewView({
         },
         { income: 0, expenses: 0, net: 0, count: 0 },
       );
-    }
-
-    const hasTotals =
-      totals.income !== 0 || totals.expenses !== 0 || totals.net !== 0 || totals.count !== 0;
-    if (!hasTotals) {
-      const dummy = ACCOUNT_DUMMY_SUMMARIES[accountFilter];
-      if (dummy) {
-        return { ...dummy };
-      }
     }
     return totals;
   }, [accountFilter, totals, accountBreakdown]);
@@ -795,7 +628,7 @@ function MonthlyOverviewView({
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <OverviewSummaryCard label="Transactions" value={heroTotals.count} tone="neutral" isCurrency={false} />
           </div>
-          {!filteredTransactions.length && !(accountFilter !== 'all' && ACCOUNT_DUMMY_SUMMARIES[accountFilter]) ? (
+          {!filteredTransactions.length ? (
             <p className="text-sm text-white/60">No transactions found for this period.</p>
           ) : null}
         </div>
@@ -843,7 +676,7 @@ function OverviewHeroTotals({
       label: 'Net Change',
       value: euro.format(totals.net),
       tone: netTone,
-      sublabel: `${totals.count.toLocaleString()} transactions`,
+      sublabel: `${totals.count.toLocaleString(DEFAULT_LOCALE)} transactions`,
     },
   ];
 
@@ -969,7 +802,7 @@ function AccountBreakdownChart({ breakdown }: { breakdown: AccountBreakdownEntry
                   {entry.label}
                 </span>
                 <span className="text-xs font-medium text-white/50">
-                  {entry.count.toLocaleString()} {entry.count === 1 ? 'transaction' : 'transactions'}
+                  {entry.count.toLocaleString(DEFAULT_LOCALE)} {entry.count === 1 ? 'transaction' : 'transactions'}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-3 text-xs uppercase tracking-wide text-white/50">
@@ -993,11 +826,6 @@ function AccountBreakdownChart({ breakdown }: { breakdown: AccountBreakdownEntry
                   </p>
                 </div>
               </div>
-              {entry.isDummy ? (
-                <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/35">
-                  Sample data
-                </span>
-              ) : null}
             </div>
           ))}
         </div>
@@ -1019,7 +847,7 @@ function OverviewSummaryCard({
 }) {
   const toneClass =
     tone === 'positive' ? 'text-emerald-300' : tone === 'negative' ? 'text-rose-300' : 'text-white';
-  const formattedValue = isCurrency ? euro.format(value) : value.toLocaleString();
+  const formattedValue = isCurrency ? euro.format(value) : value.toLocaleString(DEFAULT_LOCALE);
 
   return (
     <div className="rounded-xl border border-white/5 bg-[#09142A] p-4">
@@ -1292,13 +1120,7 @@ function TransactionsView({ transactions, categoryTree }: { transactions: Ledger
     return baseFilteredTransactions.filter((tx) => matchLabels.includes(tx.accountLabel ?? ''));
   }, [baseFilteredTransactions, accountFilter]);
 
-  const accountConfig = ACCOUNT_FILTER_CONFIG[accountFilter];
-  const fallbackTransactions = accountConfig.dummyKey
-    ? DUMMY_ACCOUNT_TRANSACTIONS[accountConfig.dummyKey] ?? []
-    : [];
-
-  const usingDummyData = accountFilteredTransactions.length === 0 && fallbackTransactions.length > 0;
-  const visibleTransactions = usingDummyData ? fallbackTransactions : accountFilteredTransactions;
+  const visibleTransactions = accountFilteredTransactions;
 
   const totalPages = Math.max(1, Math.ceil(visibleTransactions.length / pageSize));
   useEffect(() => {
@@ -1452,7 +1274,7 @@ function TransactionsView({ transactions, categoryTree }: { transactions: Ledger
             <h2 className="text-lg font-semibold text-white">Transactions</h2>
             <p className="text-xs text-white/60">
               Showing {visibleTransactions.length === 0 ? 0 : `${startIndex}–${endIndex}`} of{' '}
-              {visibleTransactions.length.toLocaleString()} records
+              {visibleTransactions.length.toLocaleString(DEFAULT_LOCALE)} records
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1509,12 +1331,6 @@ function TransactionsView({ transactions, categoryTree }: { transactions: Ledger
             </Link>
           </div>
         </header>
-        {usingDummyData ? (
-          <div className="mb-4 rounded-xl border border-dashed border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70">
-            Displaying sample transactions for {accountConfig.label}. Real records will appear once this account is
-            imported.
-          </div>
-        ) : null}
         <LedgerTable transactions={pagedTransactions} summary={summary} columnVisibility={columnVisibility} />
         <PaginationControls
           page={page}
@@ -1614,7 +1430,7 @@ function PaginationControls({
   return (
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-white/70">
       <div>
-        Page {page} of {totalPages} • {totalItems.toLocaleString()} transactions
+        Page {page} of {totalPages} • {totalItems.toLocaleString(DEFAULT_LOCALE)} transactions
       </div>
       <div className="flex items-center gap-2">
         <button

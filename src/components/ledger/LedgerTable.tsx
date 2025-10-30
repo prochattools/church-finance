@@ -4,6 +4,7 @@ import type { LedgerTransaction } from '@/context/ledger-context';
 import { AccountBadge } from '@/components/ledger/AccountBadge';
 import { buildTransactionTooltip } from '@/helpers/transaction-tooltip';
 import { cn } from '@/helpers/utils';
+import { DEFAULT_CURRENCY, DEFAULT_LOCALE } from '@/constants/intl';
 
 export type LedgerColumnVisibility = {
   date: boolean;
@@ -44,14 +45,14 @@ export function LedgerTable({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <Stat label="Transactions" value={summary.total.toLocaleString()} />
-        <Stat label="Auto Categorized" value={summary.autoCategorized.toLocaleString()} />
-        <Stat label="Needs Review" value={summary.reviewCount.toLocaleString()} />
+        <Stat label="Transactions" value={summary.total.toLocaleString(DEFAULT_LOCALE)} />
+        <Stat label="Auto Categorized" value={summary.autoCategorized.toLocaleString(DEFAULT_LOCALE)} />
+        <Stat label="Needs Review" value={summary.reviewCount.toLocaleString(DEFAULT_LOCALE)} />
         <Stat
           label="Total Amount"
-          value={summary.totalAmount.toLocaleString(undefined, {
+          value={summary.totalAmount.toLocaleString(DEFAULT_LOCALE, {
             style: 'currency',
-            currency: 'EUR',
+            currency: DEFAULT_CURRENCY,
           })}
         />
       </div>
@@ -103,6 +104,16 @@ export function LedgerTable({
                       >
                         {tx.description}
                       </div>
+                      {tx.classificationSource !== 'manual' ? (
+                        <span
+                          className="mt-1 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100"
+                        >
+                          Pending approval
+                          {tx.suggestionConfidence && tx.suggestionConfidence !== 'review'
+                            ? ` • ${tx.suggestionConfidence === 'exact' ? 'history match' : 'suggested'}`
+                            : null}
+                        </span>
+                      ) : null}
                       {showAccountInDescription && (
                         <div className="mt-2 text-xs text-muted-foreground">
                           {tx.accountLabel ? (
@@ -121,9 +132,9 @@ export function LedgerTable({
                   )}
                   {columnVisibility.amount && (
                     <Td align="right" className="align-top font-semibold">
-                      {tx.amount.toLocaleString(undefined, {
+                      {tx.amount.toLocaleString(DEFAULT_LOCALE, {
                         style: 'currency',
-                        currency: 'EUR',
+                        currency: DEFAULT_CURRENCY,
                       })}
                     </Td>
                   )}
@@ -151,9 +162,9 @@ export function LedgerTable({
                   {columnVisibility.balance && (
                     <Td align="right" className="align-top font-semibold">
                       {typeof tx.runningBalance === 'number'
-                        ? tx.runningBalance.toLocaleString(undefined, {
+                        ? tx.runningBalance.toLocaleString(DEFAULT_LOCALE, {
                             style: 'currency',
-                            currency: 'EUR',
+                            currency: DEFAULT_CURRENCY,
                           })
                         : '—'}
                     </Td>

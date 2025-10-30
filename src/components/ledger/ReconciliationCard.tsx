@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useLedger } from '@/context/ledger-context';
+import { DEFAULT_CURRENCY, DEFAULT_LOCALE } from '@/constants/intl';
 import {
   fetchAccounts,
   fetchReconciliation,
@@ -36,10 +37,10 @@ type ReconciliationPayload = Awaited<ReturnType<typeof fetchReconciliation>>;
 
 type ReconciliationStatus = 'balanced' | 'unreconciled' | 'unknown';
 
-const formatCurrency = (valueMinor: string | null, currency = 'EUR') => {
+const formatCurrency = (valueMinor: string | null, currency = DEFAULT_CURRENCY) => {
   if (!valueMinor) return '—';
   const amount = Number(valueMinor) / 100;
-  return amount.toLocaleString(undefined, {
+  return amount.toLocaleString(DEFAULT_LOCALE, {
     style: 'currency',
     currency,
   });
@@ -432,7 +433,7 @@ export function ReconciliationCard({ className, onStatusChange }: { className?: 
       <footer className="mt-6 text-[11px] text-white/50">
         {data?.transactions.length ? (
           <p>
-            {data.transactions.length.toLocaleString()} statement lines processed. Running balance reflects opening + activity in chronological order.
+            {data.transactions.length.toLocaleString(DEFAULT_LOCALE)} statement lines processed. Running balance reflects opening + activity in chronological order.
           </p>
         ) : (
           <p>No transactions for this period yet.</p>

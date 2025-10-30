@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient, TransactionClassificationSource } from '@prisma/client';
 import { prisma } from '../prismaClient';
 import { parseIngCsv } from '../../lib/import/csv_ING';
 import { parseInitialWorkbook } from '../../lib/import/xlsx';
@@ -32,6 +32,28 @@ const ledgerCacheKey = (date: Date): string => {
 const normalizeAccountName = (value: string | null): string => {
   if (!value) return 'Unknown account';
   return normalizeWhitespace(value);
+};
+
+const splitCategoryLabel = (value: string | null | undefined): { main: string | null; sub: string | null } => {
+  if (!value) {
+    return { main: null, sub: null };
+  }
+  const segments = value.split(' — ');
+  if (segments.length === 1) {
+    const label = segments[0]!.trim();
+    return {
+      main: label || null,
+      sub: label || null,
+    };
+  }
+
+  const main = segments[0]!.trim() || null;
+  const sub = segments.slice(1).join(' — ').trim() || main;
+
+  return {
+    main,
+    sub,
+  };
 };
 
 export class LockedPeriodError extends Error {
@@ -90,14 +112,16 @@ const ensureLedger = async (tx: TxClient, userId: string, date: Date): Promise<s
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
 
-  const existing = await tx.ledger.findUnique({
-    where: {
-      userId_month_year: {
-        userId,
-        month,
-        year,
-      },
+  const uniqueWhere = {
+    userId_month_year: {
+      userId,
+      month,
+      year,
     },
+  } as const;
+
+  const existing = await tx.ledger.findUnique({
+    where: uniqueWhere,
     select: {
       id: true,
       lockedAt: true,
@@ -118,7 +142,6 @@ const ensureLedger = async (tx: TxClient, userId: string, date: Date): Promise<s
       year,
     },
   });
-
   return created.id;
 };
 
@@ -188,6 +211,133 @@ const chunk = <T>(items: T[], size: number): T[][] => {
   return result;
 };
 
+const REVIEW_CATEGORY_NAME = 'Needs Review';
+
+type SuggestionConfidence = 'exact' | 'description' | 'account' | 'overall' | 'rule' | 'review';
+
+type SuggestionIndex = {
+  exact: Map<string, Map<string, number>>;
+  byNormalized: Map<string, Map<string, number>>;
+  byAccount: Map<string, Map<string, number>>;
+  overall: Map<string, number>;
+};
+
+const sanitizeIdentifier = (value: string | null | undefined): string => (value ?? '').trim().toUpperCase();
+
+const incrementCounter = (map: Map<string, Map<string, number>>, key: string, categoryId: string) => {
+  if (!key) return;
+  let bucket = map.get(key);
+  if (!bucket) {
+    bucket = new Map<string, number>();
+    map.set(key, bucket);
+  }
+  bucket.set(categoryId, (bucket.get(categoryId) ?? 0) + 1);
+};
+
+const pickDominant = (bucket?: Map<string, number>): { categoryId: string | null; count: number } => {
+  if (!bucket) return { categoryId: null, count: 0 };
+  let bestCategory: string | null = null;
+  let bestCount = 0;
+  bucket.forEach((count, categoryId) => {
+    if (count > bestCount) {
+      bestCategory = categoryId;
+      bestCount = count;
+    }
+  });
+  return { categoryId: bestCategory, count: bestCount };
+};
+
+const buildSuggestionIndex = (
+  history: Array<{ accountIdentifier: string | null; normalizedKey: string; amountMinor: bigint; categoryId: string }>,
+): SuggestionIndex => {
+  const index: SuggestionIndex = {
+    exact: new Map(),
+    byNormalized: new Map(),
+    byAccount: new Map(),
+    overall: new Map(),
+  };
+
+  history.forEach((entry) => {
+    if (!entry.categoryId) return;
+    const accountKey = sanitizeIdentifier(entry.accountIdentifier ?? '');
+    const normalizedKey = entry.normalizedKey ?? '';
+    const amountKey = entry.amountMinor.toString();
+
+    incrementCounter(index.exact, `${accountKey}|${amountKey}|${normalizedKey}`, entry.categoryId);
+    if (normalizedKey) {
+      incrementCounter(index.byNormalized, normalizedKey, entry.categoryId);
+    }
+    if (accountKey) {
+      incrementCounter(index.byAccount, accountKey, entry.categoryId);
+    }
+    index.overall.set(entry.categoryId, (index.overall.get(entry.categoryId) ?? 0) + 1);
+  });
+
+  return index;
+};
+
+const registerSuggestion = (
+  index: SuggestionIndex,
+  accountIdentifier: string | null,
+  normalizedKey: string,
+  amountMinor: bigint,
+  categoryId: string,
+) => {
+  const accountKey = sanitizeIdentifier(accountIdentifier ?? '');
+  const amountKey = amountMinor.toString();
+
+  incrementCounter(index.exact, `${accountKey}|${amountKey}|${normalizedKey}`, categoryId);
+  if (normalizedKey) {
+    incrementCounter(index.byNormalized, normalizedKey, categoryId);
+  }
+  if (accountKey) {
+    incrementCounter(index.byAccount, accountKey, categoryId);
+  }
+  index.overall.set(categoryId, (index.overall.get(categoryId) ?? 0) + 1);
+};
+
+const suggestCategoryFromIndex = (
+  index: SuggestionIndex,
+  accountIdentifier: string | null,
+  normalizedKey: string,
+  amountMinor: bigint,
+): { categoryId: string | null; confidence: SuggestionConfidence } | null => {
+  const accountKey = sanitizeIdentifier(accountIdentifier ?? '');
+  const amountKey = amountMinor.toString();
+  const exactBucket = index.exact.get(`${accountKey}|${amountKey}|${normalizedKey}`);
+  const exact = pickDominant(exactBucket);
+  if (exact.categoryId) {
+    return { categoryId: exact.categoryId, confidence: 'exact' };
+  }
+
+  const normalized = pickDominant(index.byNormalized.get(normalizedKey));
+  if (normalized.categoryId) {
+    return { categoryId: normalized.categoryId, confidence: 'description' };
+  }
+
+  const account = pickDominant(index.byAccount.get(accountKey));
+  if (account.categoryId) {
+    return { categoryId: account.categoryId, confidence: 'account' };
+  }
+
+  const overall = pickDominant(index.overall.size ? index.overall : undefined);
+  if (overall.categoryId) {
+    return { categoryId: overall.categoryId, confidence: 'overall' };
+  }
+
+  return null;
+};
+
+const ensureReviewCategory = async (tx: TxClient): Promise<string> => {
+  const category = await tx.category.upsert({
+    where: { name: REVIEW_CATEGORY_NAME },
+    update: {},
+    create: { name: REVIEW_CATEGORY_NAME },
+  });
+
+  return category.id;
+};
+
 export const processImportBufferWithClient = async (
   client: PrismaClient,
   {
@@ -243,11 +393,14 @@ export const processImportBufferWithClient = async (
     }
 
     const hashedRows = attachHashes(userId, parsed.successes);
+    const enrichedRows = format === 'xlsx_initial'
+      ? hashedRows.map((row) => ({ ...row, hash: `${row.hash}|${row.rowNumber}` }))
+      : hashedRows;
 
     const existing = await tx.transaction.findMany({
       where: {
         hash: {
-          in: hashedRows.map((row) => row.hash),
+          in: enrichedRows.map((row) => row.hash),
         },
       },
       select: {
@@ -256,10 +409,20 @@ export const processImportBufferWithClient = async (
     });
 
     const existingHashes = new Set(existing.map((entry) => entry.hash));
-    const { uniques, duplicates } = partitionDuplicates(hashedRows, existingHashes);
+    const { uniques, duplicates } = partitionDuplicates(enrichedRows, existingHashes);
 
     const accountMap = await ensureAccounts(tx, userId, uniques);
     const activeRules = await fetchActiveRules(tx, userId);
+    const categoriesLookup = await tx.category.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+    const categoryNameLookup = new Map<string, string>();
+    categoriesLookup.forEach((category) => {
+      categoryNameLookup.set(category.id, category.name);
+    });
 
     const ledgerIds = new Map<string, string>();
     const ensureLedgerCached = async (date: Date) => {
@@ -273,20 +436,76 @@ export const processImportBufferWithClient = async (
       return ledgerId;
     };
 
+    const reviewCategoryId = await ensureReviewCategory(tx);
+
+    const historyForSuggestionsRaw = await tx.transaction.findMany({
+      where: {
+        userId,
+        categoryId: {
+          not: null,
+        },
+        classificationSource: 'manual',
+      },
+      select: {
+        categoryId: true,
+        amountMinor: true,
+        normalizedKey: true,
+        account: {
+          select: {
+            identifier: true,
+          },
+        },
+      },
+    });
+
+    const suggestionIndex = buildSuggestionIndex(
+      historyForSuggestionsRaw.map((entry) => ({
+        categoryId: entry.categoryId!,
+        amountMinor: entry.amountMinor,
+        normalizedKey: entry.normalizedKey ?? '',
+        accountIdentifier: entry.account?.identifier ?? null,
+      })),
+    );
+
     let autoCategorized = 0;
     let imported = 0;
     const reconciliationTargets = new Map<string, { accountId: string; month: number; year: number; ledgerId: string }>();
 
     const now = new Date();
 
-    for (const group of chunk(uniques, CHUNK_SIZE)) {
-      const records = await Promise.all(
-        group.map(async (row) => {
-          const ledgerId = await ensureLedgerCached(row.date);
-          const accountId = accountMap.get(row.accountIdentifier) ?? null;
+    const chunkedRecords: Array<typeof uniques> = chunk(uniques, CHUNK_SIZE);
 
-          const categorization = await categorizeTransaction(tx, {
-            userId,
+    for (const group of chunkedRecords) {
+      const records: Array<{
+        userId: string;
+        accountId: string | null;
+        ledgerId: string;
+        importBatchId: string;
+        date: Date;
+        description: string;
+        normalizedKey: string;
+        amountMinor: bigint;
+        currency: string;
+        direction: Direction;
+        source: string;
+        counterparty: string | null | undefined;
+        reference: string | null | undefined;
+        hash: string;
+        sourceFile: string;
+        rawRow: Prisma.InputJsonValue;
+        categoryId: string;
+        classificationSource: TransactionClassificationSource;
+        classificationRuleId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }> = [];
+
+      for (const row of group) {
+        const ledgerId = await ensureLedgerCached(row.date);
+        const accountId = accountMap.get(row.accountIdentifier) ?? null;
+
+        const categorization = await categorizeTransaction(tx, {
+          userId,
             source: row.source,
             normalizedDescription: row.normalizedDescription,
             description: row.description,
@@ -295,12 +514,52 @@ export const processImportBufferWithClient = async (
             counterparty: row.counterparty,
             reference: row.reference,
           }, { rules: activeRules });
+          const direction = deriveDirection(row.amountMinor);
 
-          if (categorization.categoryId) {
+          const accountIdentifierForMatch = row.accountIdentifier ?? null;
+
+          let categoryId = categorization.categoryId;
+          let classificationSource: TransactionClassificationSource = categorization.classificationSource;
+          let suggestionConfidence: SuggestionConfidence =
+            classificationSource === 'history'
+              ? 'exact'
+              : classificationSource === 'rule'
+              ? 'rule'
+              : 'review';
+
+          if (!categoryId) {
+            const suggestion = suggestCategoryFromIndex(
+              suggestionIndex,
+              accountIdentifierForMatch,
+              row.normalizedDescription,
+              row.amountMinor,
+            );
+
+            if (suggestion && suggestion.categoryId) {
+              categoryId = suggestion.categoryId;
+              suggestionConfidence = suggestion.confidence;
+              classificationSource = suggestion.confidence === 'exact' ? 'history' : 'import';
+            } else {
+              categoryId = reviewCategoryId;
+              suggestionConfidence = 'review';
+              classificationSource = 'import';
+            }
+          }
+
+          const isAutoCategorized = classificationSource === 'history' || classificationSource === 'rule';
+          if (isAutoCategorized) {
             autoCategorized += 1;
           }
 
-          const direction = deriveDirection(row.amountMinor);
+          if (categoryId && categoryId !== reviewCategoryId) {
+            registerSuggestion(
+              suggestionIndex,
+              accountIdentifierForMatch,
+              row.normalizedDescription,
+              row.amountMinor,
+              categoryId,
+            );
+          }
 
           if (accountId) {
             const month = row.date.getUTCMonth() + 1;
@@ -316,31 +575,57 @@ export const processImportBufferWithClient = async (
             }
           }
 
-          return {
-            userId,
-            accountId,
-            ledgerId,
-            importBatchId: batch.id,
-            date: row.date,
-            description: row.description,
-            normalizedKey: row.normalizedDescription,
-            amountMinor: row.amountMinor,
-            currency: row.currency,
-            direction,
-            source: row.source,
-            counterparty: row.counterparty,
-            reference: row.reference,
-            hash: row.hash,
-            sourceFile: filename,
-            rawRow: row.raw as Prisma.InputJsonValue,
-            categoryId: categorization.categoryId,
-            classificationSource: categorization.classificationSource,
-            classificationRuleId: categorization.ruleId,
-            createdAt: now,
-            updatedAt: now,
-          };
-        }),
-      );
+        let suggestedMainName: string | null = null;
+        let suggestedSubName: string | null = null;
+
+        if (categoryId === reviewCategoryId) {
+          const reviewLabel = categoryNameLookup.get(reviewCategoryId) ?? 'Needs manual categorization';
+          const split = splitCategoryLabel(reviewLabel);
+          suggestedMainName = split.main ?? 'Review';
+          suggestedSubName = split.sub ?? reviewLabel;
+        } else if (categoryId) {
+          const categoryLabel = categoryNameLookup.get(categoryId) ?? null;
+          const split = splitCategoryLabel(categoryLabel);
+          suggestedMainName = split.main ?? categoryLabel;
+          suggestedSubName = split.sub ?? categoryLabel;
+        }
+
+        const baseRaw = (row.raw ?? {}) as Record<string, unknown>;
+        const rawPayload: Prisma.InputJsonValue = {
+          ...baseRaw,
+          suggestion: {
+            confidence: suggestionConfidence,
+            matchedCategoryId: categoryId,
+            matchedBy: classificationSource,
+            mainCategoryName: suggestedMainName,
+            categoryName: suggestedSubName,
+          },
+        };
+
+        records.push({
+          userId,
+          accountId,
+          ledgerId,
+          importBatchId: batch.id,
+          date: row.date,
+          description: row.description,
+          normalizedKey: row.normalizedDescription,
+          amountMinor: row.amountMinor,
+          currency: row.currency,
+          direction,
+          source: row.source,
+          counterparty: row.counterparty,
+          reference: row.reference,
+          hash: row.hash,
+          sourceFile: filename,
+          rawRow: rawPayload,
+          categoryId,
+          classificationSource,
+          classificationRuleId: categorization.ruleId,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
 
       if (!records.length) {
         continue;
@@ -355,18 +640,26 @@ export const processImportBufferWithClient = async (
     }
 
     const duplicateCount = duplicates.length + (uniques.length - imported);
-    const pendingReview = imported - autoCategorized;
+    const pendingReview = imported;
 
     for (const target of reconciliationTargets.values()) {
-      const validation = await validateLedgerBalance(tx, {
-        userId,
-        accountId: target.accountId,
-        month: target.month,
-        year: target.year,
-      });
+      try {
+        const validation = await validateLedgerBalance(tx, {
+          userId,
+          accountId: target.accountId,
+          month: target.month,
+          year: target.year,
+        });
 
-      if (validation.status === 'reconciled') {
-        await autoLockLedger(tx, target.ledgerId, userId);
+        if (validation.status === 'reconciled') {
+          await autoLockLedger(tx, target.ledgerId, userId);
+        }
+      } catch (error) {
+        if (error instanceof MissingOpeningBalanceError) {
+          // Skip auto-lock when an opening balance has not been captured yet; imports still succeed.
+          continue;
+        }
+        throw error;
       }
     }
 
