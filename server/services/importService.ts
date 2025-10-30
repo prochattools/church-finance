@@ -19,6 +19,8 @@ interface ProcessImportOptions {
   userId: string;
 }
 
+type Direction = 'credit' | 'debit';
+
 type TxClient = Prisma.TransactionClient;
 
 const LOCKS_ENABLED = process.env.RECONCILIATION_LOCKS_ENABLED !== 'false';
