@@ -1,7 +1,7 @@
 import Image from "next/image";
 
-import prochatLogoColor from "@/assets/images/prochat-logo.png";
-import prochatLogoWhite from "@/assets/images/prochat-logo-white.png";
+import openfundLight from "@/../public/logo/openfund_light.png";
+import openfundDark from "@/../public/logo/openfund_dark.png";
 import { cn } from "@/helpers/utils";
 
 interface LogoProps {
@@ -11,11 +11,11 @@ interface LogoProps {
 }
 
 const BASE_WIDTH = {
-  small: 140,
-  large: 220,
+  small: 150,
+  large: 240,
 } as const;
 
-const LOGO_HEIGHT_RATIO = 129 / 403;
+const LOGO_HEIGHT_RATIO = openfundLight.height / openfundLight.width;
 
 const Logo = ({ isLarge = false, className, priority = false }: LogoProps) => {
   const width = isLarge ? BASE_WIDTH.large : BASE_WIDTH.small;
@@ -30,18 +30,18 @@ const Logo = ({ isLarge = false, className, priority = false }: LogoProps) => {
       )}
     >
       <Image
-        src={prochatLogoColor}
+        src={openfundLight}
         width={width}
         height={height}
-        alt="ProChat logo"
+        alt="OpenFund logo"
         priority={priority}
         className="block dark:hidden"
       />
       <Image
-        src={prochatLogoWhite}
+        src={openfundDark}
         width={width}
         height={height}
-        alt="ProChat logo"
+        alt="OpenFund logo"
         priority={priority}
         className="hidden dark:block"
       />
