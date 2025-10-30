@@ -1588,13 +1588,21 @@ function CashFlowChart({ data }: { data: CashFlowDatum[] }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 16, right: 24, bottom: 8, left: 0 }} barCategoryGap={16}>
+        <BarChart data={data} margin={{ top: 16, right: 24, bottom: 8, left: 48 }} barCategoryGap={16}>
           <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
-          <XAxis dataKey="label" stroke="rgba(255,255,255,0.45)" tickLine={false} axisLine={false} />
+          <XAxis
+            dataKey="label"
+            stroke="rgba(255,255,255,0.45)"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 12 }}
+          />
           <YAxis
             stroke="rgba(255,255,255,0.45)"
             tickLine={false}
             axisLine={false}
+            width={88}
+            tick={{ fontSize: 12 }}
             tickFormatter={(value) => euro.format(Number(value ?? 0))}
           />
           <RechartsTooltip
@@ -1619,25 +1627,33 @@ function PlannedIncomeExpensesCard({ data }: { data: PlannedSummary[] }) {
   return (
     <div className="space-y-4">
       {data.map((entry) => {
-        const ratio = entry.planned === 0 ? 0 : Math.min((entry.actual / entry.planned) * 100, 150);
+        const ratio = entry.planned === 0 ? 0 : Math.min((entry.actual / entry.planned) * 100, 100);
+        const exceeded = entry.planned > 0 && entry.actual > entry.planned;
         return (
-          <div key={entry.label} className="space-y-2">
-            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-white/50">
+          <div key={entry.label} className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 text-xs uppercase tracking-wide text-white/50">
               <span>{entry.label}</span>
-              <span>{euro.format(entry.planned)} planned</span>
+              <span className="font-semibold text-white/60">
+                {euro.format(entry.planned)} planned
+              </span>
             </div>
-            <div className="relative h-2 rounded-full bg-white/10">
+            <div className="relative h-2 overflow-hidden rounded-full bg-white/10">
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#2970FF] to-[#5B9CFF]"
                 style={{ width: `${ratio}%` }}
               />
             </div>
-            <div className="flex items-baseline justify-between">
-              <div className="text-lg font-semibold text-white">{euro.format(entry.actual)}</div>
-              <div
-                className={`text-xs font-medium ${entry.positive ? 'text-emerald-400' : 'text-rose-400'}`}
-              >
-                {entry.positive ? '▲' : '▼'} {Math.abs(entry.delta).toFixed(1)}%
+            <div className="flex flex-wrap items-baseline justify-between gap-y-2 text-sm sm:text-base">
+              <div className="text-lg font-semibold text-white sm:text-xl">{euro.format(entry.actual)}</div>
+              <div className="flex items-center gap-2 text-xs font-medium sm:text-sm">
+                {exceeded ? (
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-200">
+                    Exceeded
+                  </span>
+                ) : null}
+                <span className={entry.positive ? 'text-emerald-400' : 'text-rose-400'}>
+                  {entry.positive ? '▲' : '▼'} {Math.abs(entry.delta).toFixed(1)}%
+                </span>
               </div>
             </div>
           </div>
