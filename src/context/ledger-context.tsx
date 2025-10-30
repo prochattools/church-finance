@@ -176,6 +176,7 @@ type ApiLedgerTransaction = {
   sourceFile?: string | null;
   categoryId?: string | null;
   categoryName?: string | null;
+  mainCategoryName?: string | null;
   ledgerMonth?: number | null;
   ledgerYear?: number | null;
   createdAt?: string | Date | null;
