@@ -121,6 +121,40 @@ const buildHistoryMatchKey = (
   return values.join('|');
 };
 
+const toJsonValue = (value: unknown): Prisma.JsonValue => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => toJsonValue(item)) as Prisma.JsonArray;
+  }
+  if (typeof value === 'object') {
+    const obj: Prisma.JsonObject = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+      const jsonValue = toJsonValue(val);
+      if (jsonValue !== undefined) {
+        obj[key] = jsonValue;
+      }
+    });
+    return obj;
+  }
+  return String(value);
+};
+
+const toJsonObject = (source: Record<string, unknown>): Prisma.JsonObject => {
+  const result: Prisma.JsonObject = {};
+  Object.entries(source).forEach(([key, value]) => {
+    const jsonValue = toJsonValue(value);
+    if (jsonValue !== undefined) {
+      result[key] = jsonValue;
+    }
+  });
+  return result;
+};
+
 const ledgerCacheKey = (date: Date): string => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
@@ -778,21 +812,26 @@ export const processImportBufferWithClient = async (
           Notifications: baseRaw['Notifications'] ?? baseRaw['Notification'] ?? null,
         };
 
-        const rawColumns =
+        const existingColumns =
           typeof baseRaw.columns === 'object' && baseRaw.columns && !Array.isArray(baseRaw.columns)
-            ? { ...(baseRaw.columns as Record<string, unknown>) }
+            ? (baseRaw.columns as Record<string, unknown>)
             : {};
-        const flattenedRaw = Object.fromEntries(
-          Object.entries(baseRaw).filter(([key]) => key !== 'columns' && key !== 'suggestion'),
+
+        const flattenedRaw = toJsonObject(
+          Object.fromEntries(
+            Object.entries(baseRaw).filter(([key]) => key !== 'columns' && key !== 'suggestion'),
+          ),
         );
+
+        const rawColumns = toJsonObject({
+          ...existingColumns,
+          ...flattenedRaw,
+          ...canonicalColumns,
+        });
 
         const rawPayload: Prisma.InputJsonValue = {
           ...flattenedRaw,
-          columns: {
-            ...rawColumns,
-            ...flattenedRaw,
-            ...canonicalColumns,
-          },
+          columns: rawColumns,
           suggestion: {
             confidence: suggestionConfidence,
             matchedCategoryId: categoryId,
