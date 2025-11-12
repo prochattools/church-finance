@@ -25,6 +25,102 @@ type TxClient = Prisma.TransactionClient;
 
 const LOCKS_ENABLED = process.env.RECONCILIATION_LOCKS_ENABLED !== 'false';
 
+const HISTORY_MATCH_FIELD_GROUPS: Array<string[]> = [
+  ['Name / Description'],
+  ['Account'],
+  ['Counterparty'],
+  ['Code'],
+  ['Debit/credit'],
+  ['Amount (EUR)'],
+  ['Transaction type'],
+  ['Notifications', 'Notification'],
+];
+
+const normalizeHistoryFieldValue = (value: unknown): string => {
+  if (value == null) return '';
+  return normalizeWhitespace(String(value)).toLowerCase();
+};
+
+const extractRawRecord = (rawRow: Prisma.JsonValue | null | undefined): Record<string, unknown> | null => {
+  if (!rawRow || typeof rawRow !== 'object' || Array.isArray(rawRow)) {
+    return null;
+  }
+  return rawRow as Record<string, unknown>;
+};
+
+const extractRawColumns = (rawRecord: Record<string, unknown> | null): Record<string, unknown> | null => {
+  if (!rawRecord) return null;
+  const columns = rawRecord.columns;
+  if (columns && typeof columns === 'object' && !Array.isArray(columns)) {
+    return columns as Record<string, unknown>;
+  }
+  return null;
+};
+
+const readRawValue = (
+  rawRecord: Record<string, unknown> | null,
+  columns: Record<string, unknown> | null,
+  key: string,
+): unknown => {
+  if (rawRecord && key in rawRecord && rawRecord[key] != null) {
+    return rawRecord[key];
+  }
+  if (columns && key in columns && columns[key] != null) {
+    return columns[key];
+  }
+  return null;
+};
+
+type HistoryKeyFallback = {
+  description?: string | null;
+  accountIdentifier?: string | null;
+  counterparty?: string | null;
+  code?: string | null;
+  debitCredit?: string | null;
+  amountMinor?: bigint | null;
+  transactionType?: string | null;
+  notifications?: string | null;
+};
+
+const buildHistoryMatchKey = (
+  rawRow: Prisma.JsonValue | null | undefined,
+  fallback?: HistoryKeyFallback,
+): string | null => {
+  const rawRecord = extractRawRecord(rawRow);
+  if (!rawRecord) return null;
+  const columns = extractRawColumns(rawRecord);
+  const values = HISTORY_MATCH_FIELD_GROUPS.map((fieldKeys) => {
+    for (const key of fieldKeys) {
+      const value = readRawValue(rawRecord, columns, key);
+      if (value != null && String(value).trim().length > 0) {
+        return normalizeHistoryFieldValue(value);
+      }
+    }
+    if (fallback) {
+      const fallbackMap: Record<string, unknown> = {
+        'Name / Description': fallback.description,
+        Account: fallback.accountIdentifier,
+        Counterparty: fallback.counterparty,
+        Code: fallback.code,
+        'Debit/credit': fallback.debitCredit,
+        'Amount (EUR)': fallback.amountMinor != null ? Number(fallback.amountMinor) / 100 : null,
+        'Transaction type': fallback.transactionType,
+        Notifications: fallback.notifications,
+      };
+      for (const key of fieldKeys) {
+        if (fallbackMap[key] != null) {
+          return normalizeHistoryFieldValue(fallbackMap[key]);
+        }
+      }
+    }
+    return '';
+  });
+  if (!values.some((value) => value.length > 0)) {
+    return null;
+  }
+  return values.join('|');
+};
+
 const ledgerCacheKey = (date: Date): string => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
@@ -469,6 +565,46 @@ export const processImportBufferWithClient = async (
       })),
     );
 
+    const historyMatchCandidates = await tx.transaction.findMany({
+      where: {
+        userId,
+        categoryId: {
+          not: null,
+        },
+      },
+      select: {
+        categoryId: true,
+        description: true,
+        counterparty: true,
+        reference: true,
+        rawRow: true,
+        amountMinor: true,
+        account: {
+          select: {
+            identifier: true,
+          },
+        },
+        source: true,
+      },
+    });
+
+    const historyMatchIndex = new Map<string, string>();
+    historyMatchCandidates.forEach((entry) => {
+      if (!entry.categoryId) return;
+      const fallback: HistoryKeyFallback = {
+        description: entry.description,
+        accountIdentifier: entry.account?.identifier ?? null,
+        counterparty: entry.counterparty,
+        debitCredit: entry.amountMinor >= 0n ? 'Credit' : 'Debit',
+        amountMinor: entry.amountMinor < 0n ? entry.amountMinor * -1n : entry.amountMinor,
+        transactionType: entry.source,
+      };
+      const key = buildHistoryMatchKey(entry.rawRow, fallback);
+      if (!key) return;
+      if (!historyMatchIndex.has(key)) {
+        historyMatchIndex.set(key, entry.categoryId);
+      }
+    });
     let autoCategorized = 0;
     let imported = 0;
     const reconciliationTargets = new Map<string, { accountId: string; month: number; year: number; ledgerId: string }>();
@@ -506,52 +642,87 @@ export const processImportBufferWithClient = async (
         const ledgerId = await ensureLedgerCached(row.date);
         const accountId = accountMap.get(row.accountIdentifier) ?? null;
 
-        const categorization = await categorizeTransaction(tx, {
-          userId,
-            source: row.source,
-            normalizedDescription: row.normalizedDescription,
-            description: row.description,
-            amountMinor: row.amountMinor,
-            accountIdentifier: row.accountIdentifier,
-            counterparty: row.counterparty,
-            reference: row.reference,
-          }, { rules: activeRules });
-          const direction = deriveDirection(row.amountMinor);
+        const direction = deriveDirection(row.amountMinor);
+        const accountIdentifierForMatch = row.accountIdentifier ?? null;
+        const historyMatchKey = buildHistoryMatchKey(row.raw as Prisma.JsonValue, {
+          description: row.description,
+          accountIdentifier: row.accountIdentifier,
+          counterparty: row.counterparty,
+          debitCredit: direction === 'credit' ? 'Credit' : 'Debit',
+          amountMinor: row.amountMinor < 0n ? row.amountMinor * -1n : row.amountMinor,
+          transactionType: (row.raw && (row.raw as Record<string, unknown>)['Transaction type']) as
+            | string
+            | null,
+          code: (row.raw && (row.raw as Record<string, unknown>)['Code']) as string | null,
+          notifications: (row.raw &&
+            ((row.raw as Record<string, unknown>)['Notifications'] ??
+              (row.raw as Record<string, unknown>)['Notification'])) as string | null,
+        });
 
-          const accountIdentifierForMatch = row.accountIdentifier ?? null;
+        let categoryId: string | null = null;
+        let classificationSource: TransactionClassificationSource = 'import';
+        let classificationRuleId: string | null = null;
+        let suggestionConfidence: SuggestionConfidence = 'review';
 
-          let categoryId = categorization.categoryId;
-          let classificationSource: TransactionClassificationSource = categorization.classificationSource;
-          let suggestionConfidence: SuggestionConfidence =
-            classificationSource === 'history'
-              ? 'exact'
-              : classificationSource === 'rule'
-              ? 'rule'
-              : 'review';
+        if (historyMatchKey && historyMatchIndex.has(historyMatchKey)) {
+          categoryId = historyMatchIndex.get(historyMatchKey)!;
+          classificationSource = 'history';
+          suggestionConfidence = 'exact';
+        } else {
+          const categorization = await categorizeTransaction(
+            tx,
+            {
+              userId,
+              source: row.source,
+              normalizedDescription: row.normalizedDescription,
+              description: row.description,
+              amountMinor: row.amountMinor,
+              accountIdentifier: row.accountIdentifier,
+              counterparty: row.counterparty,
+              reference: row.reference,
+            },
+            { rules: activeRules },
+          );
 
-          if (!categoryId) {
-            const suggestion = suggestCategoryFromIndex(
-              suggestionIndex,
-              accountIdentifierForMatch,
-              row.normalizedDescription,
-              row.amountMinor,
-            );
-
-            if (suggestion && suggestion.categoryId) {
-              categoryId = suggestion.categoryId;
-              suggestionConfidence = suggestion.confidence;
-              classificationSource = suggestion.confidence === 'exact' ? 'history' : 'import';
-            } else {
-              categoryId = reviewCategoryId;
-              suggestionConfidence = 'review';
-              classificationSource = 'import';
-            }
+          if (categorization.classificationSource === 'rule' && categorization.categoryId) {
+            categoryId = categorization.categoryId;
+            classificationSource = 'rule';
+            classificationRuleId = categorization.ruleId;
+            suggestionConfidence = 'rule';
+          } else if (categorization.classificationSource === 'history' && categorization.categoryId) {
+            categoryId = categorization.categoryId;
+            classificationSource = 'import';
+            suggestionConfidence = 'description';
+          } else if (categorization.categoryId) {
+            categoryId = categorization.categoryId;
+            classificationSource = categorization.classificationSource;
           }
+        }
 
-          const isAutoCategorized = classificationSource === 'history' || classificationSource === 'rule';
-          if (isAutoCategorized) {
-            autoCategorized += 1;
+        if (!categoryId) {
+          const suggestion = suggestCategoryFromIndex(
+            suggestionIndex,
+            accountIdentifierForMatch,
+            row.normalizedDescription,
+            row.amountMinor,
+          );
+
+          if (suggestion && suggestion.categoryId) {
+            categoryId = suggestion.categoryId;
+            suggestionConfidence =
+              suggestion.confidence === 'exact' ? 'description' : suggestion.confidence;
+            classificationSource = 'import';
+          } else {
+            categoryId = reviewCategoryId;
+            suggestionConfidence = 'review';
+            classificationSource = 'import';
           }
+        }
+
+        const isAutoCategorized = classificationSource === 'history' || classificationSource === 'rule';
+        if (isAutoCategorized) {
+          autoCategorized += 1;
+        }
 
           if (categoryId && categoryId !== reviewCategoryId) {
             registerSuggestion(
@@ -561,6 +732,9 @@ export const processImportBufferWithClient = async (
               row.amountMinor,
               categoryId,
             );
+            if (historyMatchKey) {
+              historyMatchIndex.set(historyMatchKey, categoryId);
+            }
           }
 
           if (accountId) {
@@ -593,8 +767,32 @@ export const processImportBufferWithClient = async (
         }
 
         const baseRaw = (row.raw ?? {}) as Record<string, unknown>;
+        const canonicalColumns: Record<string, unknown> = {
+          'Name / Description': row.description,
+          Account: row.accountIdentifier,
+          Counterparty: row.counterparty ?? baseRaw['Counterparty'] ?? null,
+          Code: baseRaw['Code'] ?? null,
+          'Debit/credit': baseRaw['Debit/credit'] ?? (direction === 'credit' ? 'Credit' : 'Debit'),
+          'Amount (EUR)': Number(row.amountMinor) / 100,
+          'Transaction type': baseRaw['Transaction type'] ?? row.source,
+          Notifications: baseRaw['Notifications'] ?? baseRaw['Notification'] ?? null,
+        };
+
+        const rawColumns =
+          typeof baseRaw.columns === 'object' && baseRaw.columns && !Array.isArray(baseRaw.columns)
+            ? { ...(baseRaw.columns as Record<string, unknown>) }
+            : {};
+        const flattenedRaw = Object.fromEntries(
+          Object.entries(baseRaw).filter(([key]) => key !== 'columns' && key !== 'suggestion'),
+        );
+
         const rawPayload: Prisma.InputJsonValue = {
-          ...baseRaw,
+          ...flattenedRaw,
+          columns: {
+            ...rawColumns,
+            ...flattenedRaw,
+            ...canonicalColumns,
+          },
           suggestion: {
             confidence: suggestionConfidence,
             matchedCategoryId: categoryId,
@@ -623,7 +821,7 @@ export const processImportBufferWithClient = async (
           rawRow: rawPayload,
           categoryId,
           classificationSource,
-          classificationRuleId: categorization.ruleId,
+          classificationRuleId,
           createdAt: now,
           updatedAt: now,
         });

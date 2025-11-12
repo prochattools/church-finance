@@ -45,7 +45,7 @@ const CARD_TONE: Record<SuggestionConfidence, string> = {
 const BADGE_STYLE: Record<SuggestionConfidence, { className: string; label: (source?: string | null) => string }> = {
   exact: {
     className: 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100',
-    label: (source) => (source === 'rule' ? 'Rule match' : 'History match'),
+    label: (source) => (source === 'rule' ? 'Rule match' : 'History matched'),
   },
   fuzzy: {
     className: 'border-amber-400/40 bg-amber-500/15 text-amber-100',

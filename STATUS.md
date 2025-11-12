@@ -1,4 +1,4 @@
-# Status – Church Finance (Step 2)
+# Status – openfund (Step 2)
 
 ## Architecture Overview
 

@@ -24,6 +24,28 @@ export const DEFAULT_LEDGER_COLUMN_VISIBILITY: LedgerColumnVisibility = {
   balance: true,
 };
 
+const BADGE_VARIANTS: Record<
+  string,
+  { className: string; label: string }
+> = {
+  history: {
+    className: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
+    label: 'History matched',
+  },
+  rule: {
+    className: 'border-sky-400/40 bg-sky-500/10 text-sky-100',
+    label: 'Rule match',
+  },
+  suggested: {
+    className: 'border-amber-400/40 bg-amber-500/10 text-amber-100',
+    label: 'Suggested match',
+  },
+  review: {
+    className: 'border-rose-400/40 bg-rose-500/10 text-rose-100',
+    label: 'Pending approval',
+  },
+};
+
 interface LedgerSummary {
   total: number;
   reviewCount: number;
@@ -104,16 +126,30 @@ export function LedgerTable({
                       >
                         {tx.description}
                       </div>
-                      {tx.classificationSource !== 'manual' ? (
-                        <span
-                          className="mt-1 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100"
-                        >
-                          Pending approval
-                          {tx.suggestionConfidence && tx.suggestionConfidence !== 'review'
-                            ? ` • ${tx.suggestionConfidence === 'exact' ? 'history match' : 'suggested'}`
-                            : null}
-                        </span>
-                      ) : null}
+                      {tx.classificationSource !== 'manual'
+                        ? (() => {
+                            const badge =
+                              tx.classificationSource === 'history'
+                                ? BADGE_VARIANTS.history
+                                : tx.classificationSource === 'rule'
+                                ? BADGE_VARIANTS.rule
+                                : tx.classificationSource === 'import' &&
+                                  tx.suggestionConfidence &&
+                                  tx.suggestionConfidence !== 'review'
+                                ? BADGE_VARIANTS.suggested
+                                : BADGE_VARIANTS.review;
+                            return (
+                              <span
+                                className={cn(
+                                  'mt-1 inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                                  badge.className,
+                                )}
+                              >
+                                {badge.label}
+                              </span>
+                            );
+                          })()
+                        : null}
                       {showAccountInDescription && (
                         <div className="mt-2 text-xs text-muted-foreground">
                           {tx.accountLabel ? (

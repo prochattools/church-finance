@@ -6,7 +6,11 @@ import process from "node:process";
 import dotenv from "dotenv";
 import xlsx from "xlsx";
 import pkg from "@prisma/client";
-const { PrismaClient, TransactionDirection } = pkg;
+const {
+  PrismaClient,
+  TransactionDirection,
+  TransactionClassificationSource,
+} = pkg;
 
 // ✅ Load environment (.env.local by default)
 const envPath = process.env.ENV_FILE || ".env.local";
@@ -23,7 +27,7 @@ const args = new Map(
 // ✅ File, range, and sheet
 const file =
   args.get("file") ||
-  "/Users/Steve/Documents/Development/Code/Projects/Private/church-finance/sheets/Overzicht_Yeshua_Academy_Jun_2025.xlsx";
+  "/Users/Steve/Documents/Development/Code/Projects/Private/openfund/sheets/Overzicht_Yeshua_Academy_Jun_2025.xlsx";
 const fromRow = Number(args.get("fromRow") || 2);
 const toRow = Number(args.get("toRow") || 225);
 const sheetName = "transacties 2025"; // ✅ fixed correct sheet name
@@ -56,6 +60,77 @@ function normalizeKey(...parts) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
+
+const trimOrNull = (value) => {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  return trimmed.length ? trimmed : null;
+};
+
+const buildCategoryLabel = (main, sub) => {
+  const safeMain = trimOrNull(main);
+  const safeSub = trimOrNull(sub);
+  if (safeMain && safeSub && safeMain !== safeSub) {
+    return `${safeMain} — ${safeSub}`;
+  }
+  return safeMain ?? safeSub ?? null;
+};
+
+const DEFAULT_ACCOUNT_IDENTIFIER = "NL89INGB0006369960";
+
+const ACCOUNT_LABEL_ENTRIES = [
+  {
+    keys: ["NL89INGB0006369960"],
+    name: "Yeshua Academy",
+    identifier: "NL89INGB0006369960",
+  },
+  {
+    keys: ["R 951-98945", "R95198945"],
+    name: "Fellowship Renswoude",
+    identifier: "R 951-98945",
+  },
+  {
+    keys: ["K 577-97642", "K57797642"],
+    name: "Fellowship Veluwe",
+    identifier: "K 577-97642",
+  },
+  {
+    keys: ["C 951-98936", "C95198936"],
+    name: "Fellowship Barneveld",
+    identifier: "C 951-98936",
+  },
+  {
+    keys: ["F 951-98948", "F95198948"],
+    name: "Yeshua Academy Savings",
+    identifier: "F 951-98948",
+  },
+];
+
+const normalizeAccountKey = (value) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]/gi, "")
+    .toUpperCase();
+
+const ACCOUNT_LOOKUP = ACCOUNT_LABEL_ENTRIES.reduce((acc, entry) => {
+  entry.keys.forEach((key) => acc.set(normalizeAccountKey(key), entry));
+  return acc;
+}, new Map());
+
+const resolveAccountInfo = (rawValue) => {
+  const identifier = trimOrNull(rawValue);
+  if (!identifier) return null;
+  const normalized = normalizeAccountKey(identifier);
+  const entry = ACCOUNT_LOOKUP.get(normalized);
+  if (!entry) {
+    return { identifier, name: identifier };
+  }
+  return {
+    identifier: entry.identifier ?? identifier,
+    name: entry.name ?? identifier,
+  };
+};
 
 async function main() {
   if (!process.env.DATABASE_URL)
@@ -91,16 +166,49 @@ async function main() {
   const iAmt = findColumn("Bedrag", "Amount (EUR)");
   const iCat = findColumn("Categorie");
   const iSub = findColumn("bestemming");
+  const iAccount = header.indexOf("Account");
 
-  const userId = process.env.MOCK_USER_ID || "local-test";
+const userId =
+  process.env.MOCK_USER_ID ||
+  process.env.DEFAULT_USER_ID ||
+  "demo-user";
 
   // ✅ Prepare 224 transaction records
   const records = dataRows.map((r, idx) => {
+    const rowData = header.reduce((acc, columnName, columnIdx) => {
+      const key =
+        (columnName && columnName.trim().length ? columnName : `Column ${columnIdx + 1}`);
+      acc[key] = r[columnIdx] ?? null;
+      return acc;
+    }, /** @type {Record<string, unknown>} */ ({}));
     const amount = num(r[iAmt]);
     const date = parseYyyyMmDd(r[iDate]);
     const description = String(r[iDesc] ?? "");
-    const mainCategoryName = r[iCat] ? String(r[iCat]) : null;
-    const categoryName = r[iSub] ? String(r[iSub]) : null;
+    const mainCategoryName = trimOrNull(r[iCat]);
+    const categoryName = trimOrNull(r[iSub]);
+    const categoryLabel = buildCategoryLabel(mainCategoryName, categoryName);
+    const accountRaw =
+      iAccount >= 0 ? r[iAccount] ?? null : DEFAULT_ACCOUNT_IDENTIFIER;
+    const accountInfo = resolveAccountInfo(accountRaw);
+
+    const canonicalColumns = {
+      "Name / Description": description,
+      Account: accountInfo?.identifier ?? DEFAULT_ACCOUNT_IDENTIFIER,
+      Counterparty: trimOrNull(rowData["Counterparty"] ?? rowData["counterparty"]),
+      Code: trimOrNull(rowData["Code"] ?? rowData["code"]),
+      "Debit/credit": amount >= 0 ? "Credit" : "Debit",
+      "Amount (EUR)": amount,
+      "Transaction type": rowData["Transaction type"] ?? "Excel Import",
+      Notifications:
+        rowData["Notifications"] ??
+        rowData["Notification"] ??
+        `Source: Excel Import`,
+    };
+    Object.entries(canonicalColumns).forEach(([key, value]) => {
+      if (value != null) {
+        rowData[key] = value;
+      }
+    });
 
     const normalizedKey = normalizeKey(
       description,
@@ -122,20 +230,27 @@ async function main() {
     const hash = hashString(hashInput);
 
     return {
-      userId,
-      date,
-      description,
-      normalizedKey,
-      amountMinor: BigInt(Math.round(amount * 100)), // Prisma BigInt
-      currency: "EUR",
-      direction:
-        amount >= 0 ? TransactionDirection.credit : TransactionDirection.debit,
-      source: "Excel Import",
-      hash,
-      sourceFile: path.basename(file),
-      categoryId: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      base: {
+        userId,
+        date,
+        description,
+        normalizedKey,
+        amountMinor: BigInt(Math.round(amount * 100)), // Prisma BigInt
+        currency: "EUR",
+        direction:
+          amount >= 0 ? TransactionDirection.credit : TransactionDirection.debit,
+        source: "Excel Import",
+        hash,
+        sourceFile: path.basename(file),
+        classificationSource: TransactionClassificationSource.manual,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      categoryLabel,
+      mainCategoryName,
+      categoryName,
+      accountInfo,
+      rowData,
     };
   });
 
@@ -145,7 +260,7 @@ async function main() {
   const prisma = new PrismaClient();
   try {
     // ✅ Ensure user exists before importing
-    console.log("👤 Ensuring local-test user exists...");
+    console.log(`👤 Ensuring ${userId} user exists...`);
     await prisma.user.upsert({
       where: { id: userId },
       update: {},
@@ -158,10 +273,93 @@ async function main() {
     console.log("🧹 Deleting all existing transactions...");
     await prisma.transaction.deleteMany({});
 
-    console.log("🧾 First record preview:", records[0]);
+    const categoryLabels = Array.from(
+      new Set(
+        records
+          .map((record) => record.categoryLabel)
+          .filter((value) => value != null)
+      )
+    );
 
-    console.log(`📥 Importing ${records.length} transactions...`);
-    const res = await prisma.transaction.createMany({ data: records });
+    const categoryIds = new Map();
+    if (categoryLabels.length) {
+      const existing = await prisma.category.findMany({
+        where: { name: { in: categoryLabels } },
+      });
+      existing.forEach((category) => categoryIds.set(category.name, category.id));
+      for (const label of categoryLabels) {
+        if (categoryIds.has(label)) continue;
+        const created = await prisma.category.create({
+          data: { name: label },
+        });
+        categoryIds.set(label, created.id);
+      }
+    }
+
+    const accountIdentifiers = Array.from(
+      new Set(
+        records
+          .map((record) => record.accountInfo?.identifier ?? null)
+          .filter((value) => value != null)
+      )
+    );
+
+    const accountIds = new Map();
+    if (accountIdentifiers.length) {
+      const existingAccounts = await prisma.account.findMany({
+        where: {
+          userId,
+          identifier: { in: accountIdentifiers },
+        },
+      });
+      for (const account of existingAccounts) {
+        accountIds.set(account.identifier, account.id);
+        const exampleName = records.find(
+          (record) => record.accountInfo?.identifier === account.identifier
+        )?.accountInfo?.name;
+        if (exampleName && account.name !== exampleName) {
+          await prisma.account.update({
+            where: { id: account.id },
+            data: { name: exampleName },
+          });
+        }
+      }
+      for (const identifier of accountIdentifiers) {
+        if (accountIds.has(identifier)) continue;
+        const example = records.find(
+          (record) => record.accountInfo?.identifier === identifier
+        )?.accountInfo;
+        const created = await prisma.account.create({
+          data: {
+            userId,
+            identifier,
+            name: example?.name ?? identifier,
+          },
+        });
+        accountIds.set(identifier, created.id);
+      }
+    }
+
+    const preparedRecords = records.map((record) => ({
+      ...record.base,
+      categoryId: record.categoryLabel
+        ? categoryIds.get(record.categoryLabel) ?? null
+        : null,
+      accountId: record.accountInfo
+        ? accountIds.get(record.accountInfo.identifier) ?? null
+        : null,
+      rawRow: {
+        columns: record.rowData,
+        mainCategoryName: record.mainCategoryName,
+        categoryName: record.categoryName,
+        accountIdentifier: record.accountInfo?.identifier ?? null,
+      },
+    }));
+
+    console.log("🧾 First record preview:", preparedRecords[0]);
+
+    console.log(`📥 Importing ${preparedRecords.length} transactions...`);
+    const res = await prisma.transaction.createMany({ data: preparedRecords });
     console.log(`✅ Imported ${res.count}`);
 
     const verify = await prisma.transaction.count();
