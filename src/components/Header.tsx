@@ -356,25 +356,51 @@ const RequestAccessDialog = ({
 	onOpenChange: (open: boolean) => void
 }) => {
 	const [name, setName] = useState('')
+	const [email, setEmail] = useState('')
 	const [role, setRole] = useState('')
 	const [reason, setReason] = useState('')
 	const [submitted, setSubmitted] = useState(false)
+	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
 	useEffect(() => {
 		if (!open) {
 			setName('')
+			setEmail('')
 			setRole('')
 			setReason('')
 			setSubmitted(false)
+			setErrorMessage(null)
+			setIsSubmitting(false)
 		}
 	}, [open])
 
-	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
-		setSubmitted(true)
+		if (isSubmitting) return
+		setErrorMessage(null)
+		setSubmitted(false)
+		setIsSubmitting(true)
+		try {
+			const response = await fetch('/api/request-access', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name, email, role, reason }),
+			})
+			if (!response.ok) {
+				throw new Error('Request failed')
+			}
+			setSubmitted(true)
+		} catch (error) {
+			console.error('Request access submission failed', error)
+			setErrorMessage('We could not submit your request. Please try again shortly.')
+		} finally {
+			setIsSubmitting(false)
+		}
 	}
 
 	const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)
+	const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)
 	const handleRoleChange = (event: ChangeEvent<HTMLInputElement>) => setRole(event.target.value)
 	const handleReasonChange = (event: ChangeEvent<HTMLTextAreaElement>) => setReason(event.target.value)
 
@@ -402,12 +428,25 @@ const RequestAccessDialog = ({
 						/>
 					</div>
 					<div className='space-y-2'>
+						<label htmlFor='request-access-email' className='text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/60'>
+							Email
+						</label>
+						<Input
+							id='request-access-email'
+							type='email'
+							required
+							value={email}
+							onChange={handleEmailChange}
+							placeholder='name@organization.org'
+							className='h-11 rounded-2xl border-slate-200 bg-white/90 text-slate-700 placeholder:text-slate-400 dark:border-white/15 dark:bg-white/5 dark:text-white/85 dark:placeholder:text-white/40'
+						/>
+					</div>
+					<div className='space-y-2'>
 						<label htmlFor='request-access-role' className='text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/60'>
 							Role
 						</label>
 						<Input
 							id='request-access-role'
-							required
 							value={role}
 							onChange={handleRoleChange}
 							placeholder='Example: Finance Director'
@@ -428,10 +467,15 @@ const RequestAccessDialog = ({
 						/>
 					</div>
 					<div className='space-y-4 pt-2'>
-						<IconButton text='Submit Request' icon={<RightArrow />} />
+						<IconButton text='Submit Request' icon={<RightArrow />} isLoading={isSubmitting} />
+						{errorMessage && (
+							<p className='rounded-2xl border border-rose-200/80 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200'>
+								{errorMessage}
+							</p>
+						)}
 						{submitted && (
 							<p className='rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200'>
-								Your request was received. We’ll notify you once approved.
+								Request submitted. We’ll email you once we review your request.
 							</p>
 						)}
 					</div>

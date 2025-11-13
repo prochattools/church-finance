@@ -36,6 +36,24 @@ class ResendService {
 		}
 	}
 
+	public async sendEmail(
+		payload: Parameters<Resend['emails']['send']>[0],
+		action: string,
+	) {
+		if (!this.resend) {
+			this.ensureResendAvailable(action)
+			return { id: `resend-mock-${Date.now()}` }
+		}
+
+		const { data, error } = await this.resend.emails.send(payload)
+
+		if (error) {
+			throw error
+		}
+
+		return data
+	}
+
 	public async sendThanksYouEmail(toMail: string) {
 		if (!this.resend) {
 			this.ensureResendAvailable('thank you email send')
