@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode, useEffect, useTransition } from "react";
+import { useEffect, useTransition } from "react";
+import type { FC, ReactNode } from "react";
 import { ClerkProvider } from "@/utils/clerkClient";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "react-hot-toast";
@@ -81,7 +82,7 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-const ClerkCacheRefreshPatch = () => {
+const ClerkCacheRefreshPatch: FC = () => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
