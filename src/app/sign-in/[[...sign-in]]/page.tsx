@@ -1,4 +1,3 @@
-import { SignIn } from "@/utils/clerkClient";
 import { Suspense } from "react";
 import SignInClient from "./sign-in-client";
 import { AUTH_ENABLED } from "@/utils/auth";
@@ -27,9 +26,7 @@ export default function Page() {
             </div>
           }
         >
-          <SignInClient>
-            {(redirectUrl) => <SignIn forceRedirectUrl={redirectUrl} />}
-          </SignInClient>
+          <SignInClient />
         </Suspense>
       </div>
     </div>

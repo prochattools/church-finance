@@ -1,4 +1,3 @@
-import { SignUp } from "@/utils/clerkClient";
 import { Suspense } from "react";
 import SignUpClient from "./sign-up-client";
 import { AUTH_ENABLED } from "@/utils/auth";
@@ -27,9 +26,7 @@ export default function Page() {
             </div>
           }
         >
-          <SignUpClient>
-            {(redirectUrl) => <SignUp forceRedirectUrl={redirectUrl} />}
-          </SignUpClient>
+          <SignUpClient />
         </Suspense>
       </div>
     </div>

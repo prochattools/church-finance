@@ -105,7 +105,7 @@ const ButtonSignin = ({
 	}
 
 	const gradientButtonClasses = cn(
-		'group relative inline-flex items-center justify-center overflow-hidden rounded-full px-7 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_-12px_rgba(98,97,255,0.75)] transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+		'group relative inline-flex min-w-[96px] items-center justify-center overflow-hidden rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_-12px_rgba(98,97,255,0.75)] transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background whitespace-nowrap',
 		extraStyle,
 	)
 

@@ -1,15 +1,12 @@
 "use client";
 
-import { ReactNode, useMemo } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-
-type SignUpClientProps = {
-  children: (redirectUrl: string) => ReactNode;
-};
+import { SignUp } from "@/utils/clerkClient";
 
 const DEFAULT_REDIRECT = "/ledger";
 
-export default function SignUpClient({ children }: SignUpClientProps) {
+export default function SignUpClient() {
   const searchParams = useSearchParams();
 
   const redirectUrl = useMemo(() => {
@@ -26,5 +23,5 @@ export default function SignUpClient({ children }: SignUpClientProps) {
     }
   }, [searchParams]);
 
-  return <>{children(redirectUrl)}</>;
+  return <SignUp forceRedirectUrl={redirectUrl} />;
 }

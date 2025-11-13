@@ -98,8 +98,8 @@ const NavLinks = ({ nav_links, isFooter = false, onRequestAccess, onNavigate }: 
       className={`flex ${
         isFooter
           ? "flex-col gap-y-4"
-          : "flex-col items-start gap-y-4 lg:flex-row lg:items-center lg:gap-y-0"
-      } gap-x-8`}
+          : "flex-col items-start gap-y-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-y-2"
+      } gap-x-6`}
     >
       {nav_links?.map((item: NavLink) => {
         const key = `${item.id}-${item.title}`;
