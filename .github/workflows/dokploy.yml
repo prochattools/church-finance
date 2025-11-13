@@ -14,24 +14,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      #- name: Setup Supabase CLI
-        # run: npm install -g supabase
-        # Dokploy has Supabase CLI already installed
-
       - name: Preview Deploy - Provision DB
         if: github.event_name == 'pull_request' && github.event.action != 'closed'
-        run: ./scripts/provision-saas.sh boilerplate ${{ secrets.BASE_DOMAIN }} ${{ github.event.pull_request.number }}
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            ./scripts/provision-saas.sh boilerplate ${{ secrets.BASE_DOMAIN }} ${{ github.event.pull_request.number }}
+          else
+            echo "supabase CLI not available in this runner; skipping preview provisioning step."
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_TUNNEL_HOST: ${{ secrets.CLOUDFLARE_TUNNEL_HOST }}
 
       - name: Preview Deploy - Cleanup DB
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        run: ./scripts/cleanup-preview.sh boilerplate ${{ github.event.pull_request.number }}
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            ./scripts/cleanup-preview.sh boilerplate ${{ github.event.pull_request.number }}
+          else
+            echo "supabase CLI not available in this runner; skipping preview cleanup step."
+          fi
 
       - name: Main Deploy
         if: github.ref == 'refs/heads/main'
-        run: ./scripts/provision-saas.sh boilerplate ${{ secrets.BASE_DOMAIN }}
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            ./scripts/provision-saas.sh boilerplate ${{ secrets.BASE_DOMAIN }}
+          else
+            echo "supabase CLI not available in this runner; skipping main provisioning step."
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_TUNNEL_HOST: ${{ secrets.CLOUDFLARE_TUNNEL_HOST }}
