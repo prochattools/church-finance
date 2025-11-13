@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useTransition } from "react";
 import { ClerkProvider } from "@/utils/clerkClient";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "react-hot-toast";
@@ -12,6 +12,14 @@ import {
   getSignInUrl,
   getSignUpUrl,
 } from "@/utils/auth";
+import { useRouter } from "next/navigation";
+
+declare global {
+  interface Window {
+    __clerk_internal_invalidateCachePromise?: () => void;
+    __unstable__onBeforeSetActive?: () => Promise<void>;
+  }
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   if (!AUTH_ENABLED) {
@@ -48,6 +56,7 @@ export function Providers({ children }: { children: ReactNode }) {
       signInFallbackRedirectUrl="/ledger"
       signUpFallbackRedirectUrl="/ledger"
     >
+      <ClerkCacheRefreshPatch />
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
@@ -71,3 +80,44 @@ export function Providers({ children }: { children: ReactNode }) {
     </ClerkProvider>
   );
 }
+
+const ClerkCacheRefreshPatch = () => {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!AUTH_ENABLED || typeof window === "undefined") {
+      return;
+    }
+
+    const previous = window.__unstable__onBeforeSetActive;
+    const patched = () =>
+      new Promise<void>((resolve) => {
+        window.__clerk_internal_invalidateCachePromise = resolve;
+        startTransition(() => {
+          router.refresh();
+        });
+      });
+
+    window.__unstable__onBeforeSetActive = patched;
+
+    return () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      window.__unstable__onBeforeSetActive = previous;
+    };
+  }, [router, startTransition]);
+
+  useEffect(() => {
+    if (!AUTH_ENABLED || typeof window === "undefined") {
+      return;
+    }
+    if (!isPending) {
+      window.__clerk_internal_invalidateCachePromise?.();
+      window.__clerk_internal_invalidateCachePromise = undefined;
+    }
+  }, [isPending]);
+
+  return null;
+};
