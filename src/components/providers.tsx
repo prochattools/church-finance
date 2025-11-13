@@ -8,8 +8,6 @@ import { Tooltip } from "react-tooltip";
 import { LedgerProvider } from "@/context/ledger-context";
 import {
   AUTH_ENABLED,
-  getAfterSignInUrl,
-  getAfterSignUpUrl,
   getPublishableKey,
   getSignInUrl,
   getSignUpUrl,
@@ -46,8 +44,9 @@ export function Providers({ children }: { children: ReactNode }) {
       publishableKey={getPublishableKey()}
       signInUrl={getSignInUrl()}
       signUpUrl={getSignUpUrl()}
-      afterSignInUrl={getAfterSignInUrl()}
-      afterSignUpUrl={getAfterSignUpUrl()}
+      fallbackRedirectUrl="/ledger"
+      signInFallbackRedirectUrl="/ledger"
+      signUpFallbackRedirectUrl="/ledger"
     >
       <ThemeProvider
         attribute="class"
