@@ -357,7 +357,6 @@ const RequestAccessDialog = ({
 }) => {
 	const [name, setName] = useState('')
 	const [email, setEmail] = useState('')
-	const [role, setRole] = useState('')
 	const [reason, setReason] = useState('')
 	const [submitted, setSubmitted] = useState(false)
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -367,7 +366,6 @@ const RequestAccessDialog = ({
 		if (!open) {
 			setName('')
 			setEmail('')
-			setRole('')
 			setReason('')
 			setSubmitted(false)
 			setErrorMessage(null)
@@ -385,7 +383,7 @@ const RequestAccessDialog = ({
 			const response = await fetch('/api/request-access', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name, email, role, reason }),
+				body: JSON.stringify({ name, email, reason }),
 			})
 			if (!response.ok) {
 				throw new Error('Request failed')
@@ -401,7 +399,6 @@ const RequestAccessDialog = ({
 
 	const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)
 	const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)
-	const handleRoleChange = (event: ChangeEvent<HTMLInputElement>) => setRole(event.target.value)
 	const handleReasonChange = (event: ChangeEvent<HTMLTextAreaElement>) => setReason(event.target.value)
 
 	return (
@@ -438,18 +435,6 @@ const RequestAccessDialog = ({
 							value={email}
 							onChange={handleEmailChange}
 							placeholder='name@organization.org'
-							className='h-11 rounded-2xl border-slate-200 bg-white/90 text-slate-700 placeholder:text-slate-400 dark:border-white/15 dark:bg-white/5 dark:text-white/85 dark:placeholder:text-white/40'
-						/>
-					</div>
-					<div className='space-y-2'>
-						<label htmlFor='request-access-role' className='text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/60'>
-							Role
-						</label>
-						<Input
-							id='request-access-role'
-							value={role}
-							onChange={handleRoleChange}
-							placeholder='Example: Finance Director'
 							className='h-11 rounded-2xl border-slate-200 bg-white/90 text-slate-700 placeholder:text-slate-400 dark:border-white/15 dark:bg-white/5 dark:text-white/85 dark:placeholder:text-white/40'
 						/>
 					</div>

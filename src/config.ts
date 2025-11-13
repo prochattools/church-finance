@@ -65,13 +65,13 @@ const config: ConfigProps = {
 	},
 	resend: {
 		// REQUIRED — Email 'From' field to be used when sending other emails, like abandoned carts, updates etc..
-		fromAdmin: `Stevie's Studio <made@stevie.studio>`,
+		fromAdmin: 'OpenFund <noreply@openfund.yeshua.academy>',
 		// Email shown to customer if need support. Leave empty if not needed => if empty, set up Crisp above, otherwise you won't be able to offer customer support."
-		supportEmail: 'made@stevie.studio',
+		supportEmail: 'support@openfund.yeshua.academy',
 		// When someone replies to supportEmail sent by the app, forward it to the email below (otherwise it's lost). If you set supportEmail to empty, this will be ignored.
-		forwardRepliesTo: 'made@stevie.studio',
+		forwardRepliesTo: 'info@yeshua.academy',
 		subjects: {
-			thankYou: 'Welcome to Stevies Studio',
+			thankYou: 'Welcome to OpenFund',
 		},
 	},
 }
