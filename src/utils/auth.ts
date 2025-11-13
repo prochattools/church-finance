@@ -1,5 +1,10 @@
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
-const secretKey = process.env.CLERK_SECRET_KEY ?? "";
+const secretKey = (() => {
+  if (typeof window !== "undefined") {
+    return null;
+  }
+  return process.env.CLERK_SECRET_KEY ?? "";
+})();
 
 const isStubKey = (key: string) =>
   key.startsWith("pk_stub_") ||
@@ -10,8 +15,12 @@ const isStubKey = (key: string) =>
 const isValidPublishableKey = (key: string) =>
   key.startsWith("pk_") && key.length > 20 && !isStubKey(key);
 
-const isValidSecretKey = (key: string) =>
-  key.startsWith("sk_") && key.length > 20 && !isStubKey(key);
+const isValidSecretKey = (key: string | null) => {
+  if (key == null) {
+    return true;
+  }
+  return key.startsWith("sk_") && key.length > 20 && !isStubKey(key);
+};
 
 export const AUTH_ENABLED =
   isValidPublishableKey(publishableKey) && isValidSecretKey(secretKey);

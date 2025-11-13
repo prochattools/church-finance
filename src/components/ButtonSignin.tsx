@@ -92,7 +92,10 @@ const ButtonSignin = ({
 	const handleSignOut = async () => {
 		if (AUTH_ENABLED && typeof clerk?.signOut === 'function') {
 			try {
-				await clerk.signOut({ redirectUrl: '/' })
+				const redirectUrl =
+					typeof window !== 'undefined' ? window.location.origin ?? '/' : '/'
+				await clerk.signOut({ redirectUrl })
+				router.push('/')
 				return
 			} catch (error) {
 				console.error('Failed to sign out', error)

@@ -22,7 +22,7 @@ const createStubExports = (): ClerkClientExports => ({
   ClerkProvider: ({ children }: { children: ReactNode } & Record<string, unknown>) => <>{children}</>,
   useUser: () => ({
     isLoaded: true,
-    isSignedIn: true,
+    isSignedIn: false,
   }),
   useClerk: () => ({
     signOut: async () => undefined,
